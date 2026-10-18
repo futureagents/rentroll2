@@ -1,24 +1,62 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/*
+ * A1 · Design tokens — spec/foundations.md
+ * The only colours, type sizes, radii and shadows in the product. Components use the
+ * generated utilities (bg-primary, text-ink, bg-primary-soft, border-line, text-h1,
+ * rounded-md, shadow-1) and never raw values. See CLAUDE.md §3.
+ */
+@theme {
+  /* Colour. The stock Tailwind palette is removed so only A1 colours exist. */
+  --color-*: initial;
+  --color-ink: #14202b; /* headings, primary text, numbers on cards */
+  --color-body: #3c4a57; /* body copy, table cells */
+  --color-muted: #7c8b99; /* labels, helper text, placeholders, timestamps */
+  --color-line: #e2e8ed; /* borders, dividers, table rules */
+  --color-canvas: #f6f8fa; /* page background */
+  --color-surface: #ffffff; /* cards, panels, table background */
+  --color-primary: #1b3a5c; /* primary buttons, active nav, links */
+  --color-primary-soft: #dce7f0; /* selected rows, active tab background */
+  --color-success: #1e7a4d; /* paid, confirmations */
+  --color-warning: #b4761a; /* due soon, expiring, 1–9 days late */
+  --color-danger: #b3352c; /* overdue 10+ days, urgent, destructive */
+  --color-neutral: #8a98a5; /* vacant, closed, archived */
+
+  /* Type scale: text-display, text-h1, text-h2, text-body, text-small, text-label.
+     `label` is also uppercase; add the `uppercase` utility where it is used. */
+  --text-display: 28px;
+  --text-display--font-weight: 600;
+  --text-h1: 20px;
+  --text-h1--font-weight: 600;
+  --text-h2: 16px;
+  --text-h2--font-weight: 600;
+  --text-body: 14px;
+  --text-body--font-weight: 400;
+  --text-small: 13px;
+  --text-small--font-weight: 400;
+  --text-label: 11px;
+  --text-label--font-weight: 600;
+  --text-label--letter-spacing: 0.6px;
+
+  /* Radius: rounded-sm (buttons, inputs, chips), rounded-md (cards, panels, modals). */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+
+  /* Elevation: shadow-1 (cards at rest), shadow-2 (modals, drawers, dropdowns). */
+  --shadow-1: 0 1px 2px rgba(20, 32, 43, 0.06);
+  --shadow-2: 0 8px 24px rgba(20, 32, 43, 0.12);
+
+  /* Spacing uses Tailwind's default 4px step: space-1…6 = p-1 p-2 p-3 p-4 p-6 p-8. */
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  body {
+    background: var(--color-canvas);
+    color: var(--color-body);
+    font-family: system-ui, sans-serif; /* typeface is an A1 OPEN; one family throughout */
+    font-size: var(--text-body);
+    font-weight: var(--text-body--font-weight);
+    /* Tabular figures so digits align in tables and money columns (A1). */
+    font-variant-numeric: tabular-nums;
   }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: system-ui, sans-serif;
 }
