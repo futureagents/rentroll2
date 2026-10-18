@@ -59,12 +59,10 @@ export function DetailPanel({
     };
   }, [open]);
 
-  // Move focus in on open; return it to the trigger on close.
+  // Move focus into the panel on open; return it to the trigger on close.
   useEffect(() => {
     if (!mounted) return;
-    const panel = panelRef.current;
-    const first = panel?.querySelector<HTMLElement>(FOCUSABLE);
-    (first ?? panel)?.focus();
+    panelRef.current?.focus();
     return () => {
       triggerRef.current?.focus?.();
     };
@@ -75,12 +73,20 @@ export function DetailPanel({
     else onClose();
   }, [dirty, onClose]);
 
-  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === "Escape") {
-      event.stopPropagation();
+  // Escape closes from anywhere while the panel is open, unless the discard dialog is up
+  // (the native <dialog> handles its own Escape).
+  useEffect(() => {
+    if (!open || askDiscard) return;
+    const onEscape = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      event.preventDefault();
       requestClose();
-      return;
-    }
+    };
+    document.addEventListener("keydown", onEscape);
+    return () => document.removeEventListener("keydown", onEscape);
+  }, [open, askDiscard, requestClose]);
+
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key !== "Tab" || !panelRef.current) return;
     const items = Array.from(panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE));
     if (items.length === 0) return;

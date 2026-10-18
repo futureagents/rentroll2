@@ -166,7 +166,7 @@ function Fields() {
   const [email, setEmail] = useState("ravi@example");
   const [money, setMoney] = useState<number | null>(186000);
   const [money2, setMoney2] = useState<number | null>(null);
-  const [phone, setPhone] = useState("98765 432");
+  const [phone, setPhone] = useState("98765432");
   const [phone2, setPhone2] = useState("");
   const [date, setDate] = useState("2026-10-18");
   const [date2, setDate2] = useState("");
