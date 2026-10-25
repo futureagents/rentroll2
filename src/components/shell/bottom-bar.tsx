@@ -4,8 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { AccountRows } from "./account-menu";
 import { Icon } from "./icons";
-import { BOTTOM_BAR_NAV, MORE_SHEET_NAV, isActive, type NavItem } from "./nav";
+import { BOTTOM_BAR_NAV, MORE_SHEET_NAV, isActive, isTenantPath, type NavItem } from "./nav";
 
 // A3 bottom bar (under 640px, A4): "Five items only: Dashboard, Rent, Maintenance, Units,
 // More. 'More' opens a sheet with the rest." Status is never colour alone: the active item
@@ -14,6 +15,7 @@ import { BOTTOM_BAR_NAV, MORE_SHEET_NAV, isActive, type NavItem } from "./nav";
 const itemClass = (active: boolean) =>
   [
     "flex h-full flex-col items-center justify-center gap-1 rounded-sm text-label uppercase",
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary",
     active ? "bg-primary-soft text-primary" : "text-muted hover:text-ink",
   ].join(" ");
 
@@ -32,9 +34,11 @@ function BarLink({ item, active }: { item: NavItem; active: boolean }) {
 // up, closes on Escape, backdrop click and the close button). Should join src/components/ui.
 function MoreSheet({
   pathname,
+  email,
   onClose,
 }: {
   pathname: string;
+  email: string | null;
   onClose: () => void;
 }) {
   useEffect(() => {
@@ -90,14 +94,17 @@ function MoreSheet({
             );
           })}
         </ul>
+        <AccountRows email={email} />
       </div>
     </div>
   );
 }
 
-export function BottomBar() {
+export function BottomBar({ email }: { email: string | null }) {
   const pathname = usePathname();
   const [sheetOpen, setSheetOpen] = useState(false);
+  // A3: tenant screens have no navigation at all. Structural guard, see isTenantPath.
+  if (isTenantPath(pathname)) return null;
   const moreActive = MORE_SHEET_NAV.some((item) => isActive(pathname, item.href));
 
   return (
@@ -124,7 +131,9 @@ export function BottomBar() {
           </li>
         </ul>
       </nav>
-      {sheetOpen ? <MoreSheet pathname={pathname} onClose={() => setSheetOpen(false)} /> : null}
+      {sheetOpen ? (
+        <MoreSheet pathname={pathname} email={email} onClose={() => setSheetOpen(false)} />
+      ) : null}
     </>
   );
 }
