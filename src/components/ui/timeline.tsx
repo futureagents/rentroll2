@@ -65,7 +65,7 @@ export function Timeline({ events, loading, empty, className = "" }: TimelinePro
             <Icon name={event.icon} />
           </span>
           <div className="flex min-w-0 flex-col pt-1">
-            <p className="text-(length:--text-body) text-ink">{event.text}</p>
+            <p className="text-ink">{event.text}</p>
             <time dateTime={new Date(event.at).toISOString()} className="text-small text-muted">
               {formatDateTime(event.at)}
             </time>

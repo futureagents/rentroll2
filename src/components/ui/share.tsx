@@ -6,7 +6,7 @@
 // (2 seconds) shows when a <ToastProvider> is present.
 // S03-BTN-SHARE uses the device share sheet where available and otherwise becomes the copy
 // button, so it never shows a broken share icon.
-import { useContext, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useContext, useEffect, useState, useSyncExternalStore } from "react";
 import { Button, type ButtonSize } from "./button";
 import { ToastContext } from "./toast";
 
@@ -17,10 +17,12 @@ export const COPIED_MESSAGE = "Copied.";
 /**
  * Copies `text` to the clipboard. Call it synchronously inside a click handler. Returns
  * false only when no clipboard route exists at all (server render, very old browser).
+ * Without the async clipboard API (plain-http testing on a LAN) the legacy command runs
+ * instead, still inside the gesture.
  */
 export function copyText(text: string): boolean {
   if (typeof navigator !== "undefined" && typeof navigator.clipboard?.writeText === "function") {
-    navigator.clipboard.writeText(text).catch(() => legacyCopy(text));
+    navigator.clipboard.writeText(text).catch(() => undefined);
     return true;
   }
   return legacyCopy(text);
@@ -57,22 +59,20 @@ export interface CopyButtonProps {
 }
 
 export function CopyButton({ text, label = "Copy", size, onCopied, className }: CopyButtonProps) {
-  const [copied, setCopied] = useState(false);
-  const timer = useRef<number | null>(null);
+  // When the last copy happened; the tick shows for COPIED_MS after it and a re-click restarts it.
+  const [copiedAt, setCopiedAt] = useState(0);
+  const copied = copiedAt > 0;
   const toast = useContext(ToastContext);
 
-  useEffect(
-    () => () => {
-      if (timer.current) window.clearTimeout(timer.current);
-    },
-    [],
-  );
+  useEffect(() => {
+    if (!copiedAt) return;
+    const timer = window.setTimeout(() => setCopiedAt(0), COPIED_MS);
+    return () => window.clearTimeout(timer);
+  }, [copiedAt]);
 
   const onClick = () => {
-    copyText(text); // first thing in the handler: never after an await (S-03)
-    setCopied(true);
-    if (timer.current) window.clearTimeout(timer.current);
-    timer.current = window.setTimeout(() => setCopied(false), COPIED_MS);
+    if (!copyText(text)) return; // first thing in the handler: never after an await (S-03)
+    setCopiedAt(Date.now());
     toast?.show({ message: COPIED_MESSAGE, duration: COPIED_MS }); // E1-03
     onCopied?.();
   };
@@ -94,37 +94,23 @@ export interface ShareButtonProps {
   url: string;
   title?: string;
   text?: string;
-  /** Tooltip and accessible label; "Share" by default. */
+  /** Tooltip and accessible label; "Share" by default. The copy fallback says "Copy link". */
   label?: string;
-  /** Label of the copy fallback; "Copy link" by default. */
-  copyLabel?: string;
   size?: ButtonSize;
   onShared?: () => void;
   className?: string;
 }
 
 const subscribeNever = () => () => undefined;
-const shareSupported = () => typeof navigator !== "undefined" && typeof navigator.share === "function";
-const shareUnsupportedOnServer = () => false;
+const shareSupported = () => typeof navigator.share === "function";
+const noShareOnServer = () => false;
 
-/** True once hydrated in a browser with the Web Share API; false on the server and on desktop browsers without it. */
-export function useCanShare(): boolean {
-  return useSyncExternalStore(subscribeNever, shareSupported, shareUnsupportedOnServer);
-}
-
-export function ShareButton({
-  url,
-  title,
-  text,
-  label = "Share",
-  copyLabel = "Copy link",
-  size,
-  onShared,
-  className,
-}: ShareButtonProps) {
-  const canShare = useCanShare();
+export function ShareButton({ url, title, text, label = "Share", size, onShared, className }: ShareButtonProps) {
+  // Hydration-safe feature detection: the server renders the copy fallback, browsers with
+  // the Web Share API switch to the sheet after hydration.
+  const canShare = useSyncExternalStore(subscribeNever, shareSupported, noShareOnServer);
   if (!canShare) {
-    return <CopyButton text={url} label={copyLabel} size={size} onCopied={onShared} className={className} />;
+    return <CopyButton text={url} label="Copy link" size={size} onCopied={onShared} className={className} />;
   }
   const onClick = () => {
     // Directly from the click: the share sheet needs the user gesture. A dismissed sheet

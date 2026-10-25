@@ -45,7 +45,7 @@ export function MoneyField({
         <div className="relative">
           <span
             aria-hidden="true"
-            className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-(length:--text-body) text-muted"
+            className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-muted"
           >
             ₹
           </span>

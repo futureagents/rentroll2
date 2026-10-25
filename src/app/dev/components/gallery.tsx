@@ -5,6 +5,8 @@
 import { useEffect, useState, type ReactNode } from "react";
 import {
   Button,
+  COPIED_MESSAGE,
+  COPIED_MS,
   ConfirmDialog,
   CopyButton,
   DataTable,
@@ -165,17 +167,18 @@ const DEMO_LINK = "https://rentroll.example/u/k3v9q2m8x1";
 
 function ShareAndCopy() {
   const [copies, setCopies] = useState(0);
+  const bump = () => setCopies((n) => n + 1);
   return (
     <Section id="share" title="Share and copy (S-03)" note="Copy runs directly in the click handler, never after an await; the icon becomes a tick for 2 seconds and the E1-03 toast shows. Share uses the device sheet where the browser has one and is otherwise the copy button, so there is never a broken share icon.">
       <Row label="Copy — three heights">
         {SIZES.map((size) => (
-          <CopyButton key={size} text={DEMO_LINK} label="Copy link" size={size} onCopied={() => setCopies((n) => n + 1)} />
+          <CopyButton key={size} text={DEMO_LINK} label="Copy link" size={size} onCopied={bump} />
         ))}
         <code className="self-center rounded-sm bg-canvas px-2 py-1 text-small text-body">{DEMO_LINK}</code>
       </Row>
       <Row label="Share — the sheet on phones, copy elsewhere">
         {SIZES.map((size) => (
-          <ShareButton key={size} url={DEMO_LINK} title="Your unit link" text="Report problems and see receipts for A-102." size={size} onShared={() => setCopies((n) => n + 1)} />
+          <ShareButton key={size} url={DEMO_LINK} title="Your unit link" text="Report problems and see receipts for A-102." size={size} onShared={bump} />
         ))}
       </Row>
       <p className="text-small text-muted" aria-live="polite">
@@ -433,7 +436,7 @@ function Panels() {
         <div className="flex flex-col gap-4">
           <div className="flex items-center gap-3">
             <StatusChip tone="warning">4 days late</StatusChip>
-            <span className="text-body text-ink">{formatRupees(22000)}</span>
+            <span className="text-ink">{formatRupees(22000)}</span>
           </div>
           <TextArea label="Note" value={draft} onChange={setDraft} helper="Type here, then press Escape to see the unsaved-edits warning." />
           <Timeline events={DEMO_EVENTS.slice(0, 2)} />
@@ -493,7 +496,7 @@ function Toasts() {
         <Button variant="secondary" onClick={() => toast.show({ message: "Payment recorded. Receipt RR-0847 created.", duration: 10000, undo: { onUndo: () => toast.show({ message: "Payment undone." }) } })}>
           Show Undo toast (10s, D-11)
         </Button>
-        <Button variant="secondary" onClick={() => toast.show({ message: "Copied.", duration: 2000 })}>
+        <Button variant="secondary" onClick={() => toast.show({ message: COPIED_MESSAGE, duration: COPIED_MS })}>
           Show Copied (2s, E1-03)
         </Button>
       </Row>
