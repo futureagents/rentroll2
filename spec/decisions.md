@@ -521,6 +521,80 @@ Entities and the decision that defines each. The seven mandatory corrections are
 
 Every table carries `landlord_id` (directly or through its parent, with RLS resolving it). Tokens are unique indexed columns. Money is integer rupees. Receipt and request numbers are per-landlord sequences.
 
+### The seven mandatory schema corrections, in full
+
+Each correction above is also a decision (D-01, D-10, D-08, D-09, D-13, D-14, D-15). This section restates them in one place for whoever builds or reviews the schema: what the source said, why it cannot be right, what we chose, and what it costs. Where this section and the decision it cites differ, the decision governs.
+
+#### ★1 · Two tokens: `unit.door_token` and `tenancy.tenant_token` (D-01, D-02)
+
+**What the source said.** T-01: "one unguessable token per unit". product.md §15: the UNIT has "its own reporting link". product.md §4: "Every tenant gets their own unit link". T-01 states and E4-2: "A former tenant's link stops working when the tenancy ends". P-03 prints a QR for a door sticker.
+
+**Why it cannot be right.** One token cannot both outlive a tenancy on a printed sticker and die with it for the former tenant. Whichever owner is chosen, one of E4-2 or P-03 breaks.
+
+**What we chose.** Two tokens, both served at `/u/:token`. `unit.door_token` is created with the unit, lives until the landlord regenerates it, and reaches T-01 and T-02 only. `tenancy.tenant_token` is created with the tenancy, revoked at End tenancy, and reaches all five tenant pages. Lookup resolves to exactly one of the two.
+
+**What it costs.** Two unique indexed columns and two code paths in `src/server/tenant`. The landlord must learn which link is which; L-09 carries helper text for it. A door token on a vacant unit shows the invalid-link message, which a prospective tenant scanning the sticker will find unhelpful. One extra boundary test, E4-8.
+
+#### ★2 · `payment` is a child of `rent_entry` (D-10, D-11, D-12)
+
+**What the source said.** product.md §15 RENT ENTRY holds one "amount paid · paid on · payment reference · receipt number". L05-SEC-AMOUNT shows a single paid amount. L-04: "Marking paid twice is impossible".
+
+**Why it cannot be right.** L-04 also says a part payment "remains in the Pending filter" and "a receipt is issued for the amount actually received". A second instalment needs a second date, reference and receipt number, and one set of fields cannot hold two.
+
+**What we chose.** `rent_entry` is one row per tenancy per month carrying `amount_due` and `due_on`. `payment` is one row per amount received, with its own `receipt_number` and a `status` of `recorded | voided`. Paid, Due and Overdue are derived from the sum of recorded payments. Undo voids rather than deletes, so receipt numbers are never reused.
+
+**What it costs.** Every rent query becomes an aggregate; status is computed, never stored, so there is no column to index for the Overdue filter. "Marking paid twice is impossible" is reworded: more than the balance is impossible. L-05 must list payments, including voided ones struck through, and gains a void action. Receipts are rendered on demand rather than filed.
+
+#### ★3 · `agreement` is its own entity (D-08)
+
+**What the source said.** product.md §15 TENANT carries "agreement start, end". L12-BTN-RENEW: "On save the agreement dates update". L11-SEC-AGREEMENT shows one start, end and rent.
+
+**Why it cannot be right.** L-12 also says rent "changes take effect from the new start date" and "Rows already generated for earlier months are not altered". L-09's Rent tab shows "every month, every tenant, ever" at the amount that applied. The seed has three terms for one tenancy. Overwriting the dates on the tenancy destroys the history those screens display.
+
+**What we chose.** `agreement` rows belong to a tenancy: `starts_on`, `ends_on`, `rent`, `rent_due_day`, `escalation_pct_applied`. Terms are non-overlapping and ordered. Record renewal inserts; it never edits. The agreement in force on a date is the one containing it, or the last one once it has expired.
+
+**What it costs.** Every rent row carries an `agreement_id`, and row creation must find the agreement in force rather than read one column. L-11 shows a current term and a list of earlier ones, which the source did not draw. L-12's "the row leaves the list" needs explaining: it reappears under All with the new end date. Deleting a tenancy now cascades through agreements.
+
+#### ★4 · `agreement.rent_due_day` (D-09)
+
+**What the source said.** product.md §15 RENT ENTRY has a "due date" and no entity carries a due day. product.md §10 begins "1st of the month — a rent row is created", then asks "Paid by the due date?", then escalates at "Day 3 · 10 · 20". L04-CHP-STATUS shows "n days late".
+
+**Why it cannot be right.** A due date with no stored due day has no source. "Day 3" cannot mean the 3rd of the month when the due date is the 5th, and the landlord-editable ladder in L-15 makes no sense counted from the 1st.
+
+**What we chose.** `agreement.rent_due_day` (1–31), set per agreement so it can change at renewal. `rent_entry.due_on` is that day in the month, clamped to the month's last day. Days late, the ladder steps and "past due" are all measured from `due_on`.
+
+**What it costs.** One more required field in the tenant form, defaulting to the 1st. Clamping needs tests for 29, 30 and 31. Pending and Overdue now depend on today's date, so the same month renders differently on different days. A due day changed at renewal gives L-09's history two different due dates.
+
+#### ★5 · Notice belongs on `tenancy` (D-13)
+
+**What the source said.** product.md §15 TENANT has "notice status". L08-CHP-STATUS shows "Notice period", L10-SEG-FILTER offers "On notice", L11-SEC-AGREEMENT displays "notice status". product.md M-7 and journey stage 5 say notice is recorded or given.
+
+**Why it cannot be right.** Three screens display notice and none sets it; a "status" with no writer is always empty. The source also puts it on TENANT, which is the person, when notice ends one occupation of one unit.
+
+**What we chose.** `tenancy.notice_given_on` and `tenancy.notice_vacate_on`, both nullable. On notice means an active tenancy with a vacate date. The landlord records it with a two-field form on L-11 (default vacate date today + 30 days, a form default only). Recording notice writes an audit event and changes nothing else: the agreement stands, rent rows keep generating, End tenancy is still the act that ends it.
+
+**What it costs.** One new landlord control the source did not draw, `L11-BTN-RECORDNOTICE`. The tenant cannot give notice in the app, so the record is only as current as the landlord's data entry. There is no notice-period rule, so nothing warns when the vacate date arrives; C-9's calendar entry stays out of v1. Two nullable date columns.
+
+#### ★6 · `audit_event` is its own entity (D-14)
+
+**What the source said.** product.md §15 has no entity for history. L05-BTN-EDIT: "Any edit is recorded on the timeline with the old and new value." L-06: drag and reopen each "writes a timeline entry". L07-TML-HISTORY: "Every status change, message sent and note added". L-13: "a new statement that references the first".
+
+**Why it cannot be right.** Timelines cannot be rendered from data that was never stored. REMINDER covers sent messages only; nothing covers edits, status changes, notes, voids or token regeneration.
+
+**What we chose.** One generic `audit_event` table: `actor` (landlord, tenant, system), `entity_type`, `entity_id`, `kind`, `old_value` and `new_value` as JSON, `note`, `created_at`. Written on every mutation that a timeline shows. Internal notes are audit rows with `kind = note`. Timelines are the entity's audit rows merged with its confirmed messages.
+
+**What it costs.** Every write path a timeline shows must log in the same transaction, or the timeline lies by omission; that discipline is the real cost. JSON values are not queryable and need per-kind rendering. The tenant side reads `status_change` rows only, which makes `kind` a security-relevant column under E4-4. The table is never pruned in v1.
+
+#### ★7 · `document.is_protected` and document ownership (D-15)
+
+**What the source said.** product.md §15 DOCUMENT "belongs to" a UNIT. L-13: once settled, "the statement becomes read-only" and "is filed under documents". L14-TBL-DOCS offers delete on every file.
+
+**Why it cannot be right.** A file that any row of L-14 can delete is not read-only. A unit-only parent cannot hold a request's before photo, a tenancy's move-in photo, a deduction's photo or the landlord's logo, all of which the screens upload.
+
+**What we chose.** `document` carries nullable `unit_id`, `tenancy_id`, `request_id`, `settlement_id` and `deduction_id`, a `type` enum, `uploaded_by` and `is_protected` (default false). Mark settled sets `is_protected` on the filed statement; L-14 disables delete for it and the server refuses regardless. Files live in a private bucket behind short-lived signed URLs. Tenant pages never fetch files; they show photo counts.
+
+**What it costs.** Five foreign keys where the source drew one, plus a check that at least one owner is set. Protected rows cannot be removed even by the landlord who uploaded them; a wrong settlement is superseded, not deleted (D-18). Tenants lose photo thumbnails on T-02 and T-03.
+
 ---
 
 ## 9 · OPEN items intentionally remaining
