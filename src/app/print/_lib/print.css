@@ -1,0 +1,64 @@
+/*
+ * Print views P-01…P-03 (spec/screens/P-01.md "Rules (all print views)").
+ * Each print view is its own page: white background, no navigation, no buttons. This file
+ * owns the A4 page geometry only; everything else uses the A1 token utilities. Values are
+ * A1 tokens via their CSS variables — no raw colours here.
+ */
+@page {
+  size: A4 portrait;
+  margin: 12mm;
+}
+
+/* Fills the viewport white on screen so no canvas shows around the sheet. */
+.print-sheet {
+  flex: 1;
+  min-height: 100dvh;
+  background: var(--color-surface);
+  color: var(--color-body);
+}
+
+/* One A4 content area (210 × 297mm less the 12mm page margin). On screen the margin is
+   simulated with padding; in print the browser's @page margin takes over. */
+.print-page {
+  box-sizing: content-box;
+  width: 186mm;
+  max-width: calc(100% - 32px);
+  min-height: 273mm;
+  margin: 0 auto;
+  padding: 12mm 16px;
+}
+
+.print-page + .print-page {
+  border-top: 1px dashed var(--color-line);
+}
+
+/* P-03: four cards to an A4 page, 2 × 2, dashed cut guides (line token). */
+.door-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 93mm);
+  grid-auto-rows: 134mm;
+  justify-content: center;
+}
+
+@media print {
+  .print-sheet {
+    min-height: 0;
+  }
+  .print-page {
+    width: auto;
+    max-width: none;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    border-top: 0;
+    break-after: page;
+  }
+  .print-page:last-child {
+    break-after: auto;
+  }
+  .print-page,
+  .print-page * {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}
