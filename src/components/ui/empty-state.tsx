@@ -19,7 +19,7 @@ export function EmptyState({ message, action, children, className = "" }: EmptyS
     <div
       className={`flex flex-col items-center justify-center gap-4 rounded-md border border-dashed border-line bg-surface p-8 text-center ${className}`}
     >
-      <p className="text-body text-body">{message}</p>
+      <p className="text-body">{message}</p>
       {action && (
         <Button variant={action.variant ?? "primary"} onClick={action.onClick}>
           {action.label}

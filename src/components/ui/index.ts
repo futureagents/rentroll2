@@ -22,5 +22,6 @@ export { Timeline, type TimelineEvent, type TimelineProps } from "./timeline";
 export { EmptyState, type EmptyStateProps } from "./empty-state";
 export { ToastProvider, ToastView, useToast, type ToastOptions, type ToastViewProps } from "./toast";
 export { ConfirmDialog, type ConfirmDialogProps } from "./confirm-dialog";
+export { CopyButton, ShareButton, COPIED_MESSAGE, COPIED_MS, type CopyButtonProps, type ShareButtonProps } from "./share";
 
 export { formatRupees, formatRupeesShort, formatDate, formatDateTime, groupIndian, parseRupees } from "./format";

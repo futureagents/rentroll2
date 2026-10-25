@@ -9,14 +9,20 @@ export interface TooltipProps {
   children: ReactNode;
   /** Where the bubble sits; above by default. */
   side?: "top" | "bottom";
+  /**
+   * Id of the bubble. Pass the same id as `aria-describedby` on the wrapped control so
+   * screen readers read the tooltip with it. Generated when omitted.
+   */
+  id?: string;
   className?: string;
 }
 
-export function Tooltip({ label, children, side = "top", className = "" }: TooltipProps) {
-  const id = useId();
+export function Tooltip({ label, children, side = "top", id: idProp, className = "" }: TooltipProps) {
+  const generated = useId();
+  const id = idProp ?? generated;
   const position = side === "top" ? "bottom-full mb-2" : "top-full mt-2";
   return (
-    <span className={`group/tip relative inline-flex ${className}`} aria-describedby={id}>
+    <span className={`group/tip relative inline-flex ${className}`}>
       {children}
       <span
         role="tooltip"

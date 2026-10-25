@@ -119,7 +119,7 @@ export function DataTable<Row>({
     <div className={className}>
       {/* Desktop and tablet: the table. */}
       <div className="hidden max-h-[70vh] overflow-auto rounded-md border border-line bg-surface shadow-1 sm:block">
-        <table className="w-full border-collapse text-body text-body" aria-busy={loading || undefined}>
+        <table className="w-full border-collapse text-body" aria-busy={loading || undefined}>
           <caption className="sr-only">{caption}</caption>
           <thead className="sticky top-0 z-10 bg-surface">
             <tr className="border-b border-line">
