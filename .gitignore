@@ -42,3 +42,6 @@ next-env.d.ts
 
 # local env is never committed; .env.example is the template
 !.env.example
+
+# source material (PDFs, v2 inputs) stays local
+/source/
