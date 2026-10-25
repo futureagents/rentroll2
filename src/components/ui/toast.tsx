@@ -32,7 +32,8 @@ interface ToastContextValue {
   dismiss: () => void;
 }
 
-const ToastContext = createContext<ToastContextValue | null>(null);
+/** Nullable so components like CopyButton can toast when a provider exists and stay silent otherwise. */
+export const ToastContext = createContext<ToastContextValue | null>(null);
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toast, setToast] = useState<ToastRecord | null>(null);
@@ -106,7 +107,7 @@ export function ToastView({ message, undo, className = "" }: ToastViewProps) {
     <div
       role="status"
       aria-live="polite"
-      className={`flex h-12 max-w-full items-center gap-3 rounded-md bg-ink px-4 text-body text-surface shadow-2 ${className}`}
+      className={`flex h-12 max-w-full items-center gap-3 rounded-md bg-ink px-4 text-(length:--text-body) text-surface shadow-2 ${className}`}
     >
       <Icon name="check" className="shrink-0 text-success" />
       <span className="truncate">{message}</span>

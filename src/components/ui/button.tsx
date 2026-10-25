@@ -2,8 +2,11 @@
 // A2 · Buttons. Five variants (primary, secondary, quiet, danger, icon), three heights
 // (32 compact in table rows, 40 default, 48 on tenant screens), disabled with a tooltip
 // explaining why, and an inline spinner for network calls (never a full-page block).
+// Disabled buttons use aria-disabled and stay in the tab order (E5), so keyboard users
+// reach them and see the reason; the native disabled attribute would hide both.
 import {
   forwardRef,
+  useId,
   type ButtonHTMLAttributes,
   type MouseEvent,
   type ReactNode,
@@ -61,8 +64,8 @@ const VARIANT_CLASSES: Record<ButtonVariant, string> = {
 
 const HEIGHT_CLASSES: Record<ButtonSize, string> = {
   32: "h-8 px-3 text-small gap-1",
-  40: "h-10 px-4 text-body gap-2",
-  48: "h-12 px-6 text-body gap-2",
+  40: "h-10 px-4 text-(length:--text-body) gap-2",
+  48: "h-12 px-6 text-(length:--text-body) gap-2",
 };
 
 const ICON_SIZE_CLASSES: Record<ButtonSize, string> = {
@@ -90,6 +93,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   const isIcon = variant === "icon";
   const size: ButtonSize = sizeProp ?? (isIcon ? 32 : 40);
   const inert = Boolean(disabled) || loading;
+  const tooltipId = useId();
+  const tooltip = disabled ? disabledReason : isIcon ? label : undefined;
 
   const handleClick = (event: MouseEvent<HTMLButtonElement>) => {
     if (inert) {
@@ -117,8 +122,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       aria-disabled={inert || undefined}
       aria-busy={loading || undefined}
       aria-label={isIcon ? label : undefined}
+      aria-describedby={tooltip ? tooltipId : undefined}
       onClick={handleClick}
-      tabIndex={disabled ? -1 : undefined}
       className={`${base} ${VARIANT_CLASSES[variant]} ${shape} ${state} ${width} ${className}`}
       {...native}
     >
@@ -131,17 +136,10 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     </button>
   );
 
-  // Disabled buttons do not receive pointer events reliably, so the tooltip hangs off a
-  // wrapper that does. The reason is also wired to the button via aria-describedby.
-  if (disabled) {
-    return (
-      <Tooltip label={disabledReason} className={block ? "w-full" : ""}>
-        {button}
-      </Tooltip>
-    );
-  }
-  if (isIcon) {
-    return <Tooltip label={label ?? ""}>{button}</Tooltip>;
-  }
-  return button;
+  if (tooltip === undefined) return button;
+  return (
+    <Tooltip id={tooltipId} label={tooltip} className={block ? "w-full" : ""}>
+      {button}
+    </Tooltip>
+  );
 });

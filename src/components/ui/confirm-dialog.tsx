@@ -25,6 +25,11 @@ export interface ConfirmDialogProps {
 
 const FORBIDDEN_ACTION = /^(ok|okay|yes|confirm|continue|proceed)\.?$/i;
 
+/** True for labels that do not name the action ("OK", "Yes", "Confirm"): A2 forbids them. */
+export function isForbiddenActionLabel(label: string): boolean {
+  return FORBIDDEN_ACTION.test(label.trim());
+}
+
 export function ConfirmDialog({
   open,
   title,
@@ -36,7 +41,7 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
-  if (FORBIDDEN_ACTION.test(actionLabel.trim())) {
+  if (isForbiddenActionLabel(actionLabel)) {
     throw new Error(`ConfirmDialog action must name the action (A2), not "${actionLabel}".`);
   }
   const ref = useRef<HTMLDialogElement>(null);
@@ -62,7 +67,7 @@ export function ConfirmDialog({
         // Backdrop click: the dialog element itself is the target only outside its box.
         if (event.target === ref.current && !loading) onCancel();
       }}
-      className="m-auto w-[calc(100%-32px)] max-w-[560px] rounded-md border border-line bg-surface p-0 text-body shadow-2 backdrop:bg-ink/40"
+      className="m-auto w-[calc(100%-32px)] max-w-[560px] rounded-md border border-line bg-surface p-0 text-(length:--text-body) text-body shadow-2 backdrop:bg-ink/40"
     >
       <div className="flex flex-col gap-4 p-6">
         <h2 id={`${id}-title`} className="text-h1 text-ink">

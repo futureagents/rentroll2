@@ -6,6 +6,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import {
   Button,
   ConfirmDialog,
+  CopyButton,
   DataTable,
   DateField,
   DetailPanel,
@@ -18,6 +19,7 @@ import {
   PhotoUploader,
   RowActions,
   SegmentedChoice,
+  ShareButton,
   Spinner,
   StatCard,
   StatusChip,
@@ -47,6 +49,7 @@ export function Gallery() {
           </p>
         </header>
         <Buttons />
+        <ShareAndCopy />
         <Fields />
         <StatCards />
         <Chips />
@@ -119,7 +122,7 @@ function Buttons() {
           Delete unit
         </Button>
       </Row>
-      <Row label="Disabled — hover or focus for the reason">
+      <Row label="Disabled — hover or tab to it for the reason (disabled buttons stay in the tab order)">
         {TEXT_VARIANTS.map((variant) => (
           <Button key={variant} variant={variant} disabled disabledReason="Choose a tenant first">
             {capitalise(variant)}
@@ -152,6 +155,32 @@ function Buttons() {
           <span className="rounded-sm border border-line px-2 py-1 text-small">Hover me</span>
         </Tooltip>
       </Row>
+    </Section>
+  );
+}
+
+/* ---------- share and copy (S-03) ---------- */
+
+const DEMO_LINK = "https://rentroll.example/u/k3v9q2m8x1";
+
+function ShareAndCopy() {
+  const [copies, setCopies] = useState(0);
+  return (
+    <Section id="share" title="Share and copy (S-03)" note="Copy runs directly in the click handler, never after an await; the icon becomes a tick for 2 seconds and the E1-03 toast shows. Share uses the device sheet where the browser has one and is otherwise the copy button, so there is never a broken share icon.">
+      <Row label="Copy — three heights">
+        {SIZES.map((size) => (
+          <CopyButton key={size} text={DEMO_LINK} label="Copy link" size={size} onCopied={() => setCopies((n) => n + 1)} />
+        ))}
+        <code className="self-center rounded-sm bg-canvas px-2 py-1 text-small text-body">{DEMO_LINK}</code>
+      </Row>
+      <Row label="Share — the sheet on phones, copy elsewhere">
+        {SIZES.map((size) => (
+          <ShareButton key={size} url={DEMO_LINK} title="Your unit link" text="Report problems and see receipts for A-102." size={size} onShared={() => setCopies((n) => n + 1)} />
+        ))}
+      </Row>
+      <p className="text-small text-muted" aria-live="polite">
+        {copies === 0 ? "Press a button, then paste somewhere to check the clipboard." : `Copied or shared ${copies} ${copies === 1 ? "time" : "times"}.`}
+      </p>
     </Section>
   );
 }

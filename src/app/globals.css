@@ -22,8 +22,11 @@
   --color-danger: #b3352c; /* overdue 10+ days, urgent, destructive */
   --color-neutral: #8a98a5; /* vacant, closed, archived */
 
-  /* Type scale: text-display, text-h1, text-h2, text-body, text-small, text-label.
-     `label` is also uppercase; add the `uppercase` utility where it is used. */
+  /* Type scale: text-display, text-h1, text-h2, text-small, text-label.
+     `label` is also uppercase; add the `uppercase` utility where it is used.
+     The colour token and the type token both called `body` (an A1 OPEN) share the
+     `text-body` utility, and Tailwind resolves it to the colour. For the 14px size write
+     `text-(length:--text-body)`; most text simply inherits it from <body>. */
   --text-display: 28px;
   --text-display--font-weight: 600;
   --text-h1: 20px;
