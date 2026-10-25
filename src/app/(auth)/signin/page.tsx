@@ -1,0 +1,19 @@
+import type { Metadata } from "next";
+
+import { NEXT_PARAM, sanitizeNextPath } from "@/lib/auth/paths";
+
+import { SignInForm } from "./sign-in-form";
+
+// L-01 · Sign in — route /signin. Public; a signed-in user is redirected by src/proxy.ts.
+export const metadata: Metadata = { title: "Sign in · RentRoll" };
+
+export default async function SignInPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = await searchParams;
+  const raw = params[NEXT_PARAM];
+  const next = sanitizeNextPath(Array.isArray(raw) ? raw[0] : raw);
+  return <SignInForm next={next} />;
+}
