@@ -129,3 +129,11 @@ describe("P-03 door QR cards", () => {
     expect(html).not.toMatch(/<nav|<button|<a /);
   });
 });
+
+describe("buildUpiLink encoding", () => {
+  it("encodes spaces as %20, never +", () => {
+    const link = buildUpiLink({ upiId: "a@b", payeeName: "Kulkarni Properties", note: "Rent — Flat 2A" });
+    expect(link).toContain("pn=Kulkarni%20Properties");
+    expect(link).not.toContain("+");
+  });
+});

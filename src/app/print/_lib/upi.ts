@@ -16,13 +16,15 @@ export interface UpiLinkInput {
 }
 
 export function buildUpiLink({ upiId, payeeName, note }: UpiLinkInput): string {
-  const params = new URLSearchParams({
-    pa: upiId.trim(),
-    pn: payeeName.trim(),
-    tn: Array.from(note.trim()).slice(0, UPI_NOTE_MAX).join(""),
-    cu: "INR",
-  });
-  return `upi://pay?${params.toString()}`;
+  // encodeURIComponent, not URLSearchParams: spaces must be %20, not "+", which some UPI
+  // apps show literally in the payee name and note.
+  const params: [string, string][] = [
+    ["pa", upiId.trim()],
+    ["pn", payeeName.trim()],
+    ["tn", Array.from(note.trim()).slice(0, UPI_NOTE_MAX).join("")],
+    ["cu", "INR"],
+  ];
+  return `upi://pay?${params.map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join("&")}`;
 }
 
 /** The P-01 note wording from D-26: "Rent — Flat 2A". */
