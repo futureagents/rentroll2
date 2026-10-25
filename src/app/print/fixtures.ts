@@ -6,7 +6,7 @@ import type { ReceiptProps } from "./receipt/receipt";
 
 // A small inline monogram standing in for L15-UPL-LOGO.
 const LOGO_SVG =
-  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="10" fill="#1b3a5c"/><text x="32" y="41" text-anchor="middle" font-family="system-ui, sans-serif" font-size="26" font-weight="600" fill="#ffffff">KP</text></svg>';
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="10" fill="midnightblue"/><text x="32" y="41" text-anchor="middle" font-family="system-ui, sans-serif" font-size="26" font-weight="600" fill="white">KP</text></svg>';
 export const LOGO_DATA_URL = `data:image/svg+xml;utf8,${encodeURIComponent(LOGO_SVG)}`;
 
 /** Everything present: logo, PAN, UPI QR, payment reference. */
