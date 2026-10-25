@@ -56,7 +56,7 @@ export function PhoneField({
         <div className="relative">
           <span
             aria-hidden="true"
-            className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-body text-muted"
+            className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-muted"
           >
             +91
           </span>

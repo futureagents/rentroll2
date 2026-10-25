@@ -71,7 +71,7 @@ export function FieldShell({
 /** Classes shared by text-like controls. */
 export function controlClasses(invalid: boolean, extra = ""): string {
   return (
-    "h-10 w-full rounded-sm border bg-surface px-3 text-body text-ink placeholder:text-muted " +
+    "h-10 w-full rounded-sm border bg-surface px-3 text-(length:--text-body) text-ink placeholder:text-muted " +
     "focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:bg-canvas " +
     (invalid ? "border-danger focus:border-danger " : "border-line focus:border-primary ") +
     extra

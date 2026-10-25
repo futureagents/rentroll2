@@ -14,6 +14,7 @@ export type IconName =
   | "deposits"
   | "documents"
   | "settings"
+  | "account"
   | "more";
 
 export type NavItem = {
@@ -36,7 +37,7 @@ export const PRIMARY_NAV: readonly NavItem[] = [
   { screen: "L-14", label: "Documents", href: "/documents", icon: "documents" },
 ];
 
-/** Sits at the bottom of the sidebar (A3). */
+/** Sits at the bottom of the sidebar (A3), above the account menu (D-39). */
 export const SETTINGS_NAV: NavItem = {
   screen: "L-15",
   label: "Settings",
@@ -50,10 +51,22 @@ export const BOTTOM_BAR_NAV: readonly NavItem[] = PRIMARY_NAV.slice(0, 4);
 /** Everything the bottom bar does not show; "More" opens a sheet with these (A3). */
 export const MORE_SHEET_NAV: readonly NavItem[] = [...PRIMARY_NAV.slice(4), SETTINGS_NAV];
 
+/** Where "Sign out" (D-39 account menu) lands: L-01. */
+export const SIGN_IN_HREF = "/signin";
+
 /**
  * An item is active when the current path is its route or a page beneath it
  * (`/rent/42` keeps Rent active, L-05 opens over L-04).
  */
 export function isActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+/**
+ * D-03: every tenant route lives under `/u/:token`. A3: tenant screens have no navigation
+ * at all. The sidebar and bottom bar refuse to render on these paths, so even a tenant
+ * page mistakenly mounted inside the landlord shell shows no navigation.
+ */
+export function isTenantPath(pathname: string): boolean {
+  return pathname === "/u" || pathname.startsWith("/u/");
 }

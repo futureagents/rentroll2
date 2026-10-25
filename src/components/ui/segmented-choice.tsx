@@ -26,8 +26,8 @@ export interface SegmentedChoiceProps<V extends string = string> {
 
 const HEIGHT: Record<ButtonSize, string> = {
   32: "h-8 px-3 text-small",
-  40: "h-10 px-4 text-body",
-  48: "h-12 px-4 text-body",
+  40: "h-10 px-4 text-(length:--text-body)",
+  48: "h-12 px-4 text-(length:--text-body)",
 };
 
 export function SegmentedChoice<V extends string = string>({
