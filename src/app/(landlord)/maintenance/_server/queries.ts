@@ -3,12 +3,15 @@ import "server-only";
 // L-06, L-07 · reads. Every table read goes through the request's Supabase session, so RLS
 // limits it to the signed-in landlord's rows (D-04); a request id from another landlord simply
 // returns nothing. Photos live in the private `documents` bucket with no storage policies, so
-// the server signs short-lived URLs with the service role — only for document rows the RLS
-// read above already returned (D-15).
+// the server signs short-lived URLs with the service role (D-15) — only for document rows the
+// RLS read returned AND whose path is exactly `<landlord_id>/<document_id>`. RLS proves the row
+// is the landlord's, not the path: `storage_path` is free text a landlord could point at
+// another landlord's object, so the path itself is checked before the service role signs it.
 import { createSupabaseAdminClient } from "@/server/supabase/admin";
 import { createSupabaseServerClient } from "@/server/supabase/server";
 
 import type { AuditRow, MessageRow } from "../_lib/history";
+import { isOwnStoragePath, isUuid } from "../_lib/storage";
 import type {
   BoardCard,
   Category,
@@ -21,11 +24,6 @@ import type {
 } from "../_lib/model";
 
 const SIGNED_URL_SECONDS = 10 * 60;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-export function isUuid(value: string): boolean {
-  return UUID.test(value);
-}
 
 interface DocumentRow {
   id: string;
@@ -36,8 +34,12 @@ interface DocumentRow {
   uploaded_at: string;
 }
 
-async function signPaths(paths: string[]): Promise<Map<string, string>> {
+async function signPaths(
+  landlordId: string,
+  documents: { id: string; storage_path: string }[],
+): Promise<Map<string, string>> {
   const signed = new Map<string, string>();
+  const paths = documents.filter((d) => isOwnStoragePath(landlordId, d)).map((d) => d.storage_path);
   if (paths.length === 0) return signed;
   const admin = createSupabaseAdminClient();
   const { data } = await admin.storage.from("documents").createSignedUrls(paths, SIGNED_URL_SECONDS);
@@ -54,7 +56,7 @@ export interface BoardData {
 }
 
 /** L-06: every request of the landlord, with unit, property and first before photo. */
-export async function loadBoard(): Promise<BoardData> {
+export async function loadBoard(landlordId: string): Promise<BoardData> {
   const supabase = await createSupabaseServerClient();
   const [requests, units, properties, photos] = await Promise.all([
     supabase
@@ -79,11 +81,11 @@ export async function loadBoard(): Promise<BoardData> {
   const unitRows = (units.data ?? []) as { id: string; unit_number: string; property_id: string }[];
   const unitById = new Map(unitRows.map((u) => [u.id, u]));
 
-  const firstPhoto = new Map<string, string>();
-  for (const photo of (photos.data ?? []) as { request_id: string; storage_path: string }[]) {
-    if (!firstPhoto.has(photo.request_id)) firstPhoto.set(photo.request_id, photo.storage_path);
+  const firstPhoto = new Map<string, { id: string; storage_path: string }>();
+  for (const photo of (photos.data ?? []) as { id: string; request_id: string; storage_path: string }[]) {
+    if (!firstPhoto.has(photo.request_id)) firstPhoto.set(photo.request_id, photo);
   }
-  const signed = await signPaths([...firstPhoto.values()]);
+  const signed = await signPaths(landlordId, [...firstPhoto.values()]);
 
   const cards: BoardCard[] = [];
   for (const row of (requests.data ?? []) as {
@@ -114,7 +116,7 @@ export async function loadBoard(): Promise<BoardData> {
       vendorId: row.vendor_id,
       hasTenant: row.tenancy_id !== null,
       createdAt: row.created_at,
-      thumbnailUrl: path ? (signed.get(path) ?? null) : null,
+      thumbnailUrl: path ? (signed.get(path.storage_path) ?? null) : null,
     });
   }
 
@@ -171,7 +173,7 @@ export interface RequestDetail {
 }
 
 /** L-07: one request with everything the panel shows. Null when it is not the landlord's. */
-export async function loadRequest(requestId: string): Promise<RequestDetail | null> {
+export async function loadRequest(landlordId: string, requestId: string): Promise<RequestDetail | null> {
   if (!isUuid(requestId)) return null;
   const supabase = await createSupabaseServerClient();
 
@@ -249,7 +251,7 @@ export async function loadRequest(requestId: string): Promise<RequestDetail | nu
   const vendorRows = (vendors.data ?? []) as VendorOption[];
   const vendorName = new Map(vendorRows.map((v) => [v.id, v.name]));
   const documentRows = (documents.data ?? []) as DocumentRow[];
-  const signed = await signPaths(documentRows.map((d) => d.storage_path));
+  const signed = await signPaths(landlordId, documentRows);
   const landlordRow = landlord.data as { name: string; upi_id: string | null; receipt_name: string | null } | null;
   const tenancyRow = tenancy.data as { name: string; phone: string } | null;
   const propertyRow = property as { name: string; address: string };

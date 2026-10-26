@@ -2,9 +2,9 @@
 
 // L-06, L-07 · writes. Every action re-checks the session (requireLandlord) and writes through
 // the request's Supabase session, so RLS keeps it to the landlord's own rows (D-04). Each change
-// to a request writes its audit_event (D-14; shapes in _lib/history.ts). Nothing here sends a
-// message: a `message` row is written only after the landlord answers "Yes" to "Did you send
-// it?" in S-01 (G-1, D-17, D-28).
+// to a request writes its audit_event (D-14; shapes in _lib/history.ts). Nothing here sends or
+// records a message: S-01 is the only send path and src/server/composer/record.ts the only
+// writer of the `message` table (G-1, D-17, D-28).
 import { refresh } from "next/cache";
 
 import { requireLandlord } from "@/server/auth/session";
@@ -12,7 +12,7 @@ import { createSupabaseAdminClient } from "@/server/supabase/admin";
 import { createSupabaseServerClient } from "@/server/supabase/server";
 
 import { URGENCY_RANK } from "./_lib/board";
-import { DESCRIPTION_SHORT, closeError, planMove, statusAfterDispatch } from "./_lib/lifecycle";
+import { DESCRIPTION_SHORT, closeError, planMove } from "./_lib/lifecycle";
 import {
   LANDLORD_REPORTED_VIA,
   isCategory,
@@ -23,7 +23,7 @@ import {
   type RequestStatus,
   type Urgency,
 } from "./_lib/model";
-import { isUuid } from "./_server/queries";
+import { isUuid, ownStoragePath } from "./_lib/storage";
 
 /** E1-07. */
 const SAVE_FAILED = "Could not save. Your changes are still here — try again.";
@@ -90,6 +90,21 @@ async function writeAudits(supabase: Supabase, landlordId: string, requestId: st
 }
 
 /**
+ * The audit rows for a status change. A reopen writes both the `status_change` row T-03 reads
+ * (D-30: it shows "Reopened", so the row carries `reopened: true`) and the `reopened` event D-32
+ * names; L07-TML-HISTORY shows the pair as one line (history.ts). Both go in one insert.
+ */
+function statusAudits(from: RequestStatus, to: RequestStatus, reopened: boolean): AuditInsert[] {
+  const change: AuditInsert = {
+    kind: "status_change",
+    old_value: { status: from },
+    new_value: reopened ? { status: to, reopened: true } : { status: to },
+  };
+  if (!reopened) return [change];
+  return [change, { kind: "reopened", old_value: { status: from }, new_value: { status: to } }];
+}
+
+/**
  * L-06 drag between columns other than Done (D-32). A drag to Done is not a move: the board
  * opens L-07 with Done chosen and the move commits when L-07 saves (D-22). A drag out of Done
  * reopens to `assigned` or `new` (D-32) and writes the timeline entry, never a new request.
@@ -107,20 +122,15 @@ export async function moveRequest(
   if (plan.kind === "none") return { ok: true, status: row.status, reopened: false };
   if (plan.kind === "close") return { ok: false, error: "Open the request to record what it cost." };
 
-  const { error } = await supabase
+  const { data: moved, error } = await supabase
     .from("request")
     .update({ status: plan.status, done_at: null })
     .eq("id", row.id)
-    .eq("status", row.status); // a concurrent change wins; this one then fails visibly
-  if (error) return { ok: false, error: SAVE_FAILED };
+    .eq("status", row.status) // a concurrent change wins; this one then fails visibly
+    .select("id");
+  if (error || !moved?.length) return { ok: false, error: SAVE_FAILED };
   const reopened = plan.kind === "reopen";
-  const auditError = await writeAudits(supabase, landlord.landlordId, row.id, [
-    {
-      kind: "status_change",
-      old_value: { status: row.status },
-      new_value: reopened ? { status: plan.status, reopened: true } : { status: plan.status },
-    },
-  ]);
+  const auditError = await writeAudits(supabase, landlord.landlordId, row.id, statusAudits(row.status, plan.status, reopened));
   if (auditError) return { ok: false, error: SAVE_FAILED };
   refresh();
   return { ok: true, status: plan.status, reopened };
@@ -184,8 +194,13 @@ export async function saveRequest(
   if (plan.kind === "close") update.done_at = new Date().toISOString();
   if (plan.kind === "reopen" || plan.kind === "move") update.done_at = null;
 
-  const { error } = await supabase.from("request").update(update).eq("id", row.id).eq("status", row.status);
-  if (error) return { ok: false, error: SAVE_FAILED };
+  const { data: updated, error } = await supabase
+    .from("request")
+    .update(update)
+    .eq("id", row.id)
+    .eq("status", row.status)
+    .select("id");
+  if (error || !updated?.length) return { ok: false, error: SAVE_FAILED };
 
   const audits: AuditInsert[] = [];
   if (input.category !== row.category) {
@@ -211,13 +226,7 @@ export async function saveRequest(
   if (input.tenantLiable !== row.tenant_liable) {
     audits.push({ kind: "tenant_liable", old_value: { tenant_liable: row.tenant_liable }, new_value: { tenant_liable: input.tenantLiable } });
   }
-  if (nextStatus !== row.status) {
-    audits.push({
-      kind: "status_change",
-      old_value: { status: row.status },
-      new_value: plan.kind === "reopen" ? { status: nextStatus, reopened: true } : { status: nextStatus },
-    });
-  }
+  if (nextStatus !== row.status) audits.push(...statusAudits(row.status, nextStatus, plan.kind === "reopen"));
   const auditError = await writeAudits(supabase, landlord.landlordId, row.id, audits);
   if (auditError) return { ok: false, error: SAVE_FAILED };
 
@@ -251,68 +260,6 @@ export async function addNote(requestId: string, text: string): Promise<ActionRe
   if (!row) return { ok: false, error: NOT_FOUND };
   const error = await writeAudits(supabase, landlord.landlordId, row.id, [{ kind: "note", note }]);
   if (error) return { ok: false, error: SAVE_FAILED };
-  refresh();
-  return { ok: true };
-}
-
-export type SentKind = "vendor_dispatch" | "tenant_update" | "payment_link";
-
-export interface ConfirmSentInput {
-  requestId: string;
-  kind: SentKind;
-  channel: "whatsapp" | "copy";
-  /** The composer text at the moment of "Yes" (D-17). */
-  body: string;
-  vendorId: string | null;
-}
-
-/**
- * S01-STATE-CONFIRMSEND → "Yes" (D-17). The landlord already pressed send outside the app;
- * this only records it. Confirming a vendor dispatch moves New to Assigned (D-32); confirming a
- * payment request sets `payment_requested_at` (D-35).
- */
-export async function confirmSent(input: ConfirmSentInput): Promise<ActionResult> {
-  const { landlord, supabase } = await session(input.requestId);
-  if (!["vendor_dispatch", "tenant_update", "payment_link"].includes(input.kind)) return { ok: false, error: SAVE_FAILED };
-  if (input.channel !== "whatsapp" && input.channel !== "copy") return { ok: false, error: SAVE_FAILED };
-  const body = input.body.trim();
-  if (!body) return { ok: false, error: SAVE_FAILED };
-  const row = await currentRow(supabase, input.requestId);
-  if (!row) return { ok: false, error: NOT_FOUND };
-  if (input.kind === "vendor_dispatch" && (!input.vendorId || input.vendorId !== row.vendor_id)) {
-    return { ok: false, error: "Save the vendor on this request first." };
-  }
-  if (input.kind !== "vendor_dispatch" && !row.tenancy_id) return { ok: false, error: SAVE_FAILED };
-
-  const { error } = await supabase.from("message").insert({
-    landlord_id: landlord.landlordId,
-    kind: input.kind,
-    channel: input.channel,
-    request_id: row.id,
-    tenancy_id: row.tenancy_id,
-    vendor_id: input.kind === "vendor_dispatch" ? input.vendorId : null,
-    body,
-  });
-  if (error) return { ok: false, error: SAVE_FAILED };
-
-  if (input.kind === "vendor_dispatch") {
-    const next = statusAfterDispatch(row.status);
-    if (next !== row.status) {
-      const { error: moveError } = await supabase.from("request").update({ status: next }).eq("id", row.id).eq("status", row.status);
-      if (moveError) return { ok: false, error: SAVE_FAILED };
-      const auditError = await writeAudits(supabase, landlord.landlordId, row.id, [
-        { kind: "status_change", old_value: { status: row.status }, new_value: { status: next } },
-      ]);
-      if (auditError) return { ok: false, error: SAVE_FAILED };
-    }
-  }
-  if (input.kind === "payment_link") {
-    const { error: stampError } = await supabase
-      .from("request")
-      .update({ payment_requested_at: new Date().toISOString() })
-      .eq("id", row.id);
-    if (stampError) return { ok: false, error: SAVE_FAILED };
-  }
   refresh();
   return { ok: true };
 }
@@ -369,10 +316,13 @@ export async function logRequest(input: NewRequestInput): Promise<ActionResult<{
     .single();
   if (error || !data) return { ok: false, error: SAVE_FAILED };
   const created = data as { id: string; request_number: string };
-  await writeAudits(supabase, landlord.landlordId, created.id, [
+  const auditError = await writeAudits(supabase, landlord.landlordId, created.id, [
     { kind: "created", new_value: { reported_via: input.reportedVia } },
   ]);
   refresh();
+  // The request exists; a missing "created" event only changes the timeline wording, which
+  // falls back to the request row (history.ts). Log it rather than report a failed save.
+  if (auditError) console.error("L06-BTN-NEW: created audit event not written", auditError.message);
   return { ok: true, requestId: created.id, requestNumber: created.request_number };
 }
 
@@ -404,7 +354,7 @@ export async function createPhotoUploads(
   const uploads: PhotoUpload[] = [];
   for (let i = 0; i < files.length; i++) {
     const documentId = crypto.randomUUID();
-    const path = `${landlord.landlordId}/${documentId}`;
+    const path = ownStoragePath(landlord.landlordId, documentId);
     const { data, error } = await admin.storage.from("documents").createSignedUploadUrl(path);
     if (error || !data) return { ok: false, error: SAVE_FAILED };
     uploads.push({ documentId, path, token: data.token });
@@ -429,7 +379,7 @@ export async function recordPhotos(
   const rows = [];
   for (const photo of photos) {
     if (!isUuid(photo.documentId)) return { ok: false, error: SAVE_FAILED };
-    const path = `${landlord.landlordId}/${photo.documentId}`;
+    const path = ownStoragePath(landlord.landlordId, photo.documentId);
     const { data: info, error } = await admin.storage.from("documents").info(path);
     if (error || !info) return { ok: false, error: SAVE_FAILED };
     const mime = info.contentType ?? "image/jpeg";

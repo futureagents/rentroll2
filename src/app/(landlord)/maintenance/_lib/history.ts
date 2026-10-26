@@ -4,8 +4,10 @@
 // Shapes (entity_type = 'request'):
 //   created          new_value { reported_via }
 //   status_change    old_value { status } new_value { status, reopened? }   ← the only kind tenant
-//                    code reads (D-30); a reopen is a status_change with `reopened: true`, so T-03
-//                    can show "Reopened" (D-30) and L-07 the D-32 "reopened" entry
+//                    code reads (D-30); on a reopen it carries `reopened: true` so T-03 can show
+//                    "Reopened" (D-30)
+//   reopened         old_value { status } new_value { status }               (D-32) written beside
+//                    that status_change; not shown separately here, the status_change line says it
 //   category_change  old_value { category } new_value { category }          (D-21)
 //   urgency_change   old_value { urgency }  new_value { urgency }           (D-21)
 //   vendor_set       new_value { vendor_id, name } (name null when cleared)  (D-14)

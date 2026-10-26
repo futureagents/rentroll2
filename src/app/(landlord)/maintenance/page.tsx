@@ -10,7 +10,7 @@ import { loadBoard } from "./_server/queries";
 export const metadata: Metadata = { title: "Maintenance · RentRoll" };
 
 export default async function MaintenancePage() {
-  await requireLandlord("/maintenance");
-  const data = await loadBoard();
+  const landlord = await requireLandlord("/maintenance");
+  const data = await loadBoard(landlord.landlordId);
   return <MaintenanceBoard data={data} now={new Date().toISOString()} />;
 }

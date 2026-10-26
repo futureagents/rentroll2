@@ -28,12 +28,13 @@ describe("requestHistory", () => {
     expect(events.map((e) => e.text)).toEqual(["Logged — phone call"]);
   });
 
-  it("words status changes, reopens, cost and notes", () => {
+  it("words status changes, reopens (one line for the D-32 pair), cost and notes", () => {
     const texts = requestHistory({ created_at: "2026-10-18T09:00:00Z", reported_via: "tenant_link" }, [
       audit("status_change", { id: "1", old_value: { status: "new" }, new_value: { status: "in_progress" } }),
       audit("cost_recorded", { id: "2", new_value: { cost: 186000, no_cost: false } }),
       audit("status_change", { id: "3", new_value: { status: "done" } }),
       audit("status_change", { id: "4", old_value: { status: "done" }, new_value: { status: "assigned", reopened: true } }),
+      audit("reopened", { id: "4b", old_value: { status: "done" }, new_value: { status: "assigned" } }),
       audit("cost_recorded", { id: "5", new_value: { cost: null, no_cost: true } }),
       audit("note", { id: "6", note: "Called twice" }),
     ], []).map((e) => e.text);

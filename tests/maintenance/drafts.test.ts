@@ -12,7 +12,6 @@ import {
   repairPaymentNote,
   tenantUpdateDraft,
   vendorDispatchDraft,
-  whatsAppLink,
   type TenantUpdateInput,
 } from "../../src/app/(landlord)/maintenance/_lib/drafts";
 import { CATEGORIES, REQUEST_STATUSES } from "../../src/app/(landlord)/maintenance/_lib/model";
@@ -110,11 +109,5 @@ describe("payment request (L07-CHK-TENANTLIABLE → S-02, D-27)", () => {
 
   it("states the landlord's amount in Indian rupee format in the message the landlord sends", () => {
     expect(paymentRequestDraft("structural", 186000, "upi://pay?x")).toContain("₹1,86,000");
-  });
-});
-
-describe("whatsAppLink", () => {
-  it("uses the international number without + and encodes the text", () => {
-    expect(whatsAppLink("+919000000101", "Hi & bye")).toBe("https://wa.me/919000000101?text=Hi%20%26%20bye");
   });
 });

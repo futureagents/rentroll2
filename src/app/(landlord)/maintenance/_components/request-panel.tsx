@@ -5,8 +5,8 @@
 // L-07 rule: "Never expose to the tenant: the vendor's rate, the cost recorded, internal notes,
 // or any other unit. The tenant update draft is built from status and category only." This
 // panel is landlord-only; the only things that reach a tenant are messages the landlord sends
-// from S-01 (G-1). The cost reaches a tenant only inside a payment request the landlord sends
-// (D-27).
+// from S-01 (G-1), which this panel opens and never bypasses. The cost reaches a tenant only
+// inside a payment request the landlord sends (D-27).
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -23,7 +23,7 @@ import {
 } from "@/components/ui";
 import { formatDate, formatRupees } from "@/lib/format";
 
-import { addNote, saveRequest, type SentKind } from "../actions";
+import { addNote, saveRequest } from "../actions";
 import { URGENCY_RANK } from "../_lib/board";
 import {
   paymentRequestDraft,
@@ -49,7 +49,7 @@ import {
   type VendorOption,
 } from "../_lib/model";
 import type { RequestDetail } from "../_server/queries";
-import { Composer, type ComposerRequest } from "./composer";
+import { ComposerStub, type ComposerTarget } from "./composer-stub";
 import { Checkbox, Modal } from "./local-ui";
 import { PaymentSheet, type PaymentSheetRequest } from "./payment-sheet";
 import { usePhotoUpload } from "./use-photo-upload";
@@ -111,15 +111,13 @@ function RequestDetailPanel({ detail, intent, onClose }: { detail: RequestDetail
   const toast = useToast();
   const unitLabel = `Flat ${detail.unitNumber}`;
 
-  const tenantUpdate = (input: TenantUpdateInput): ComposerRequest | null =>
+  const tenantUpdate = (input: TenantUpdateInput): ComposerTarget | null =>
     detail.tenant
       ? {
           kind: "tenant_update",
           title: `Message to ${detail.tenant.name} · ${unitLabel}`,
-          phone: detail.tenant.phone,
           // Status and category only (L-07 rule, D-37) — never cost, vendor or vendor rate.
           draft: tenantUpdateDraft({ status: input.status, category: input.category }),
-          vendorId: null,
         }
       : null;
 
@@ -132,10 +130,9 @@ function RequestDetailPanel({ detail, intent, onClose }: { detail: RequestDetail
 
   const [form, setForm] = useState<Form>(initialForm);
   const [savedVersion, setSavedVersion] = useState(detail.version);
-  const [composer, setComposer] = useState<ComposerRequest | null>(() =>
+  const [composer, setComposer] = useState<ComposerTarget | null>(() =>
     intent === "tenant_update" ? tenantUpdate({ status: detail.status, category: detail.category }) : null,
   );
-  const [composerKey, setComposerKey] = useState(0);
   const [sheet, setSheet] = useState<PaymentSheetRequest | null>(null);
   const [addedVendors, setAddedVendors] = useState<VendorOption[]>([]);
   const [saving, setSaving] = useState(false);
@@ -170,10 +167,8 @@ function RequestDetailPanel({ detail, intent, onClose }: { detail: RequestDetail
 
   const set = <K extends keyof Form>(key: K, value: Form[K]) => setForm((current) => ({ ...current, [key]: value }));
 
-  const openComposer = (request: ComposerRequest | null) => {
-    if (!request) return;
-    setComposerKey((k) => k + 1);
-    setComposer(request);
+  const openComposer = (target: ComposerTarget | null) => {
+    if (target) setComposer(target);
   };
 
   const closeComposer = () => {
@@ -233,9 +228,8 @@ function RequestDetailPanel({ detail, intent, onClose }: { detail: RequestDetail
     if (!savedVendor) return;
     openComposer({
       kind: "vendor_dispatch",
-      title: `Message to ${savedVendor.name}`,
       // L07-BTN-DISPATCH: "Recipient defaults to the vendor's number, not the tenant's."
-      phone: savedVendor.phone,
+      title: `Message to ${savedVendor.name}`,
       draft: vendorDispatchDraft({
         vendorName: savedVendor.name,
         category: detail.category,
@@ -246,7 +240,6 @@ function RequestDetailPanel({ detail, intent, onClose }: { detail: RequestDetail
         tenantPhone: detail.tenant?.phone ?? null,
         tenantName: detail.tenant?.name ?? null,
       }),
-      vendorId: savedVendor.id,
     });
   };
 
@@ -256,22 +249,7 @@ function RequestDetailPanel({ detail, intent, onClose }: { detail: RequestDetail
     openComposer({
       kind: "payment_link",
       title: `Message to ${detail.tenant.name} · ${unitLabel}`,
-      phone: detail.tenant.phone,
       draft: paymentRequestDraft(detail.category, amount, link),
-      vendorId: null,
-    });
-  };
-
-  const recorded = (kind: SentKind) => {
-    setComposer(null);
-    if (intent) router.replace(`/maintenance/${detail.id}`, { scroll: false });
-    toast.show({
-      message:
-        kind === "vendor_dispatch"
-          ? "Job recorded on this request."
-          : kind === "payment_link"
-            ? "Payment request recorded on this request."
-            : "Update recorded on this request.",
     });
   };
 
@@ -545,7 +523,7 @@ function RequestDetailPanel({ detail, intent, onClose }: { detail: RequestDetail
       </SidePanel>
 
       {composer ? (
-        <Composer key={composerKey} requestId={detail.id} message={composer} onClose={closeComposer} onRecorded={recorded} />
+        <ComposerStub target={composer} onClose={closeComposer} />
       ) : null}
       {sheet ? <PaymentSheet sheet={sheet} onClose={() => setSheet(null)} onSendLink={sendPaymentLink} /> : null}
       <Modal open={enlarged !== null} title={enlarged?.alt ?? "Photo"} onClose={() => setEnlarged(null)}>

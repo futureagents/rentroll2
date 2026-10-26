@@ -13,8 +13,11 @@ export const metadata: Metadata = { title: "Maintenance · RentRoll" };
 export default async function RequestPage(props: PageProps<"/maintenance/[requestId]">) {
   const { requestId } = await props.params;
   const search = await props.searchParams;
-  await requireLandlord(`/maintenance/${requestId}`);
-  const [data, detail] = await Promise.all([loadBoard(), loadRequest(requestId)]);
+  const landlord = await requireLandlord(`/maintenance/${requestId}`);
+  const [data, detail] = await Promise.all([
+    loadBoard(landlord.landlordId),
+    loadRequest(landlord.landlordId, requestId),
+  ]);
   const intent: PanelIntent =
     search.close === "1" ? "close" : search.compose === "tenant_update" ? "tenant_update" : undefined;
   return <MaintenanceBoard data={data} now={new Date().toISOString()} detail={detail} intent={intent} />;

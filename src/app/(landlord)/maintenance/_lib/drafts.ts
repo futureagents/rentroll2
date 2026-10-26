@@ -1,6 +1,7 @@
 // L-07 · template drafts for the three messages it opens S-01 with (D-17 kinds
 // vendor_dispatch, tenant_update, payment_link). D-37: each kind has a fixed template used
 // when the assistant does not answer; the assistant receives the same fields and no more.
+// These are text only: handing a message to WhatsApp and recording it are S-01's alone.
 //
 // G-2 / L-07 rule / D-27 / D-37: a system-written tenant update is built from status and
 // category only — never cost, vendor, or vendor rate. The input type names exactly those two
@@ -120,9 +121,3 @@ export function paymentRequestDraft(category: Category, amount: number, link: st
   const what = category === "other" ? "the repair" : `the ${CATEGORY_LABEL[category].toLowerCase()} repair`;
   return `Hello, here is the payment request for ${what}: ${formatRupees(amount)}.\nYou can pay with this link: ${link}`;
 }
-
-/** wa.me wants the number in international form without "+" (S01-BTN-WHATSAPP). */
-export function whatsAppLink(phone: string, text: string): string {
-  return `https://wa.me/${phone.replace(/\D/g, "")}?text=${encodeURIComponent(text)}`;
-}
-
