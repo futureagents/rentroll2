@@ -3,7 +3,8 @@
 //
 // Step 1 · Tenant and agreement: name, phone, email (optional), move-in date, agreement start
 // (defaults to move-in) and end, rent (defaults to the unit's rent), rent due day (defaults to the
-// 1st, D-09), deposit paid (defaults to the unit's deposit), deposit received on, ID proof.
+// 1st, D-09), deposit paid (defaults to the unit's deposit) and deposit received on, or "Deposit
+// not received yet" (paid 0, no date), ID proof.
 // Step 2 · Condition photos (S-04, up to 10). Skippable, with the consequence stated plainly
 // (proposed decision amending D-39): with no photos the save button itself says so.
 //
@@ -13,7 +14,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useState, useTransition } from "react";
 
 import { SidePanel } from "@/components/shell/detail-panel-host";
-import { Button, DateField, Dropdown, MoneyField, PhoneField, PhotoUploader, TextField, useToast } from "@/components/ui";
+import { Button, Checkbox, DateField, Dropdown, MoneyField, PhoneField, PhotoUploader, TextField, useToast } from "@/components/ui";
 
 import { addTenancyAction } from "../actions";
 import { useUploads } from "../_components/use-uploads";
@@ -62,6 +63,8 @@ function AddTenantForm({ view, onClose }: { view: UnitView; onClose: () => void 
   const [step, setStep] = useState<1 | 2>(1);
   const [fields, setFields] = useState<TenancyFields>(() => initialFields(view));
   const [startTouched, setStartTouched] = useState(false);
+  // A tenant may move in before paying the deposit: saved as deposit paid 0 with no date (D-23).
+  const [depositPending, setDepositPending] = useState(false);
   const [errors, setErrors] = useState<FieldErrors<TenancyField>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [waiting, setWaiting] = useState(false);
@@ -205,16 +208,29 @@ function AddTenantForm({ view, onClose }: { view: UnitView; onClose: () => void 
               helper="Day of the month. 29–31 fall on the last day of shorter months."
             />
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <MoneyField label="Deposit paid" required value={fields.depositPaid} onChange={(v) => set("depositPaid", v)} error={errors.depositPaid} />
-            <DateField
-              label="Deposit received on"
-              value={fields.depositReceivedOn}
-              onChange={(v) => set("depositReceivedOn", v)}
-              error={errors.depositReceivedOn}
-              required={(fields.depositPaid ?? 0) > 0}
-            />
-          </div>
+          <Checkbox
+            label="Deposit not received yet"
+            checked={depositPending}
+            onChange={(checked) => {
+              setDepositPending(checked);
+              set("depositPaid", checked ? 0 : view.askingDeposit);
+              set("depositReceivedOn", "");
+              setErrors((current) => ({ ...current, depositPaid: undefined, depositReceivedOn: undefined }));
+            }}
+            helper={depositPending ? "The tenancy is saved with no deposit received." : undefined}
+          />
+          {!depositPending && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <MoneyField label="Deposit paid" required value={fields.depositPaid} onChange={(v) => set("depositPaid", v)} error={errors.depositPaid} />
+              <DateField
+                label="Deposit received on"
+                value={fields.depositReceivedOn}
+                onChange={(v) => set("depositReceivedOn", v)}
+                error={errors.depositReceivedOn}
+                required={(fields.depositPaid ?? 0) > 0}
+              />
+            </div>
+          )}
           <IdProofField uploads={idProof} />
         </div>
 
