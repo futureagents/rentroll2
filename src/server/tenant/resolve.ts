@@ -91,13 +91,17 @@ export async function resolveWith(repo: TenantRepo, token: unknown): Promise<Res
 /**
  * T-02: one request of the token's own tenancy, by its number. Any number that is not this
  * tenancy's (another landlord's, another unit's, the previous tenant's) is the same `null` (E4-1).
+ * Under a door token only the request this browser just created is shown (`doorConfirmed`, see
+ * confirmation.ts): the sticker must not open the tenancy's request history (D-02).
  */
 export async function findOwnRequestWith(
   repo: TenantRepo,
   resolved: ResolvedTenant,
   requestNumber: unknown,
+  { doorConfirmed = false }: { doorConfirmed?: boolean } = {},
 ): Promise<OwnRequestView | null> {
   if (typeof requestNumber !== "string" || !REQUEST_NUMBER_FORMAT.test(requestNumber)) return null;
+  if (resolved.view.kind === "door" && !doorConfirmed) return null;
   try {
     const row = await repo.findRequest(resolved.scope, requestNumber);
     if (!row || row.requestNumber !== requestNumber) return null;

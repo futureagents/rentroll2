@@ -38,6 +38,10 @@ describe("fixed texts", () => {
     expect(TENANT_MESSAGES.offline).toBe("You are offline. We will save this when you reconnect.");
   });
 
+  it("the rate-limit message never claims the reader sent the reports (the budget is shared)", () => {
+    expect(TENANT_MESSAGES.rateLimited).not.toMatch(/\byou have sent\b/i);
+  });
+
   it("T-01 submission failed", () => {
     expect(TENANT_MESSAGES.submitFailed).toBe("Could not submit. Please try again.");
   });

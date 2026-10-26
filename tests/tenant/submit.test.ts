@@ -25,7 +25,7 @@ function form(token: string, over: Record<string, string> = {}, photos: File[] =
     name: "Priya Deshpande",
     phone: "9000000303",
     stamp: issueStamp(key, token, rendered),
-    website: "",
+    [BOT_CHECK.honeypotField]: "",
     ...over,
   };
   for (const [k, v] of Object.entries(fields)) data.set(k, v);
@@ -77,6 +77,25 @@ describe("a report is created for the token's own tenancy", () => {
   });
 });
 
+describe("onReported tells the caller which kind of link reported (T-02 confirmation, D-02)", () => {
+  it("passes the link kind and the request number, after the row exists", async () => {
+    const { repo, deps } = setup();
+    const seen: [string, string][] = [];
+    const withHook = { ...deps, onReported: (kind: "door" | "tenant", n: string) => void seen.push([kind, n]) };
+    await submitReportWith(withHook, T.aDoorOccupied, form(T.aDoorOccupied));
+    await submitReportWith(withHook, T.aActive, form(T.aActive));
+    expect(seen).toEqual([["door", "R-0101"], ["tenant", "R-0102"]]);
+    expect(repo.created).toHaveLength(2);
+  });
+
+  it("is not called when nothing was created", async () => {
+    const { deps } = setup();
+    const seen: string[] = [];
+    await submitReportWith({ ...deps, onReported: (_k, n) => void seen.push(n) }, T.aActive, form(T.aActive, { category: "" }));
+    expect(seen).toEqual([]);
+  });
+});
+
 describe("a link that does not resolve creates nothing", () => {
   for (const [name, token] of [
     ["E4-2 ended tenancy", T.aEnded],
@@ -95,7 +114,7 @@ describe("a link that does not resolve creates nothing", () => {
 describe("invisible bot check (T-01 Rules)", () => {
   it("refuses a filled honeypot with the ordinary retry message, never a puzzle", async () => {
     const { repo, deps } = setup();
-    const result = await submitReportWith(deps, T.aActive, form(T.aActive, { website: "http://spam.example" }));
+    const result = await submitReportWith(deps, T.aActive, form(T.aActive, { [BOT_CHECK.honeypotField]: "http://spam.example" }));
     expect(result).toEqual({ status: "retry", message: TENANT_MESSAGES.submitFailed });
     expect(repo.calls).not.toContain("createRequest");
   });

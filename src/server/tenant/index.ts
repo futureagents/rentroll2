@@ -3,6 +3,7 @@ import "server-only";
 import { createSupabaseAdminClient } from "@/server/supabase/admin";
 
 import { botKey, issueStamp } from "./bot-check";
+import { CONFIRMATION, confirmationKey, issueConfirmation, verifyConfirmation } from "./confirmation";
 import { createSupabaseTenantRepo } from "./repo";
 import { findOwnRequestWith, onlyTenantLink, resolveWith, type ResolvedTenant } from "./resolve";
 import { submitReportWith } from "./submit";
@@ -11,8 +12,12 @@ import { submitReportWith } from "./submit";
 // Every read and the one write go through the token resolution in resolve.ts (D-04, D-30).
 
 export type { OwnRequestView, ResolvedTenant, TenantHeader, TenantRequestView, TenantView } from "./resolve";
-export type { SubmitResult } from "@/lib/tenant/report";
+import type { SubmitResult } from "@/lib/tenant/report";
+export type { SubmitResult };
 export { onlyTenantLink };
+
+/** T-02 door confirmation cookie (confirmation.ts): name and life, for the action that sets it. */
+export const T02_CONFIRMATION_COOKIE = { name: CONFIRMATION.cookie, maxAgeSeconds: CONFIRMATION.maxAgeMs / 1000 };
 
 const repo = () => createSupabaseTenantRepo(createSupabaseAdminClient());
 
@@ -21,9 +26,16 @@ export function resolveTenantToken(token: unknown): Promise<ResolvedTenant | nul
   return resolveWith(repo(), token);
 }
 
-/** T-02: the token's own request by number, or `null` for any number that is not its own. */
-export function findOwnRequest(resolved: ResolvedTenant, requestNumber: unknown) {
-  return findOwnRequestWith(repo(), resolved, requestNumber);
+/**
+ * T-02: the token's own request by number, or `null` for any number that is not its own. Under a
+ * door token, only with the confirmation cookie the submit set for that number (D-02).
+ */
+export function findOwnRequest(token: string, resolved: ResolvedTenant, requestNumber: unknown, confirmation: unknown) {
+  const doorConfirmed =
+    resolved.view.kind === "door" &&
+    typeof requestNumber === "string" &&
+    verifyConfirmation(confirmationKey(), token, requestNumber, confirmation, Date.now());
+  return findOwnRequestWith(repo(), resolved, requestNumber, { doorConfirmed });
 }
 
 /** T-01 render stamp for the invisible bot check. */
@@ -31,7 +43,28 @@ export function renderStamp(token: string): string {
   return issueStamp(botKey(), token, Date.now());
 }
 
-/** T01-BTN-SUBMIT. */
-export function submitTenantReport(token: unknown, form: FormData) {
-  return submitReportWith({ repo: repo(), botKey: botKey(), now: () => new Date() }, token, form);
+/**
+ * T01-BTN-SUBMIT. Returns the client-safe result, and for a door-token report the T-02
+ * confirmation the action must set as an HttpOnly cookie (never sent to client code).
+ */
+export async function submitTenantReport(
+  token: unknown,
+  form: FormData,
+): Promise<{ result: SubmitResult; confirmation: string | null }> {
+  let confirmation: string | null = null;
+  const result = await submitReportWith(
+    {
+      repo: repo(),
+      botKey: botKey(),
+      now: () => new Date(),
+      onReported: (kind, requestNumber) => {
+        if (kind === "door" && typeof token === "string") {
+          confirmation = issueConfirmation(confirmationKey(), token, requestNumber, Date.now());
+        }
+      },
+    },
+    token,
+    form,
+  );
+  return { result, confirmation };
 }

@@ -2,6 +2,7 @@ import "server-only";
 
 import { createHmac, hkdfSync, timingSafeEqual } from "node:crypto";
 
+import { HONEYPOT_FIELD } from "@/lib/tenant/report";
 import { serverEnv } from "@/server/env";
 
 // T-01 Rules: "A bot check runs invisibly. A tenant should never see a puzzle."
@@ -20,7 +21,7 @@ export const BOT_CHECK = {
   /** Allowed clock disagreement between server instances, in the stamp's favour. */
   skewMs: 5_000,
   stampField: "stamp",
-  honeypotField: "website",
+  honeypotField: HONEYPOT_FIELD,
 } as const;
 
 export type StampResult = "ok" | "too-fast" | "expired" | "bad";

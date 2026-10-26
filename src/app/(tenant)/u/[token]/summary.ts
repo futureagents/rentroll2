@@ -11,19 +11,20 @@ export interface SentSummary {
   photoCount: number;
 }
 
-const key = (token: string, requestNumber: string) => `rentroll:t02:${token}:${requestNumber}`;
+// Keyed by request number only: the token never goes into storage.
+const key = (requestNumber: string) => `rentroll:t02:${requestNumber}`;
 
-export function keepSummary(token: string, requestNumber: string, summary: SentSummary) {
+export function keepSummary(requestNumber: string, summary: SentSummary) {
   try {
-    window.sessionStorage.setItem(key(token, requestNumber), JSON.stringify(summary));
+    window.sessionStorage.setItem(key(requestNumber), JSON.stringify(summary));
   } catch {
     // Private mode or storage blocked: T-02 shows the D-30 fallback.
   }
 }
 
-export function readSummaryRaw(token: string, requestNumber: string): string | null {
+export function readSummaryRaw(requestNumber: string): string | null {
   try {
-    return window.sessionStorage.getItem(key(token, requestNumber));
+    return window.sessionStorage.getItem(key(requestNumber));
   } catch {
     return null;
   }

@@ -20,6 +20,7 @@ import {
   DEFAULT_URGENCY,
   DESCRIPTION_MAX,
   firstInvalidField,
+  HONEYPOT_FIELD,
   NAME_MAX,
   TENANT_CATEGORY_LABEL,
   TENANT_MESSAGES,
@@ -160,7 +161,7 @@ export function ReportForm({ token, prefill, stamp: initialStamp }: ReportFormPr
       form.set("name", name);
       form.set("phone", phone);
       form.set("stamp", stamp);
-      form.set("website", honeypotRef.current?.value ?? "");
+      form.set(HONEYPOT_FIELD, honeypotRef.current?.value ?? "");
       ready.forEach((blob, i) => form.append("photo", blob, `photo-${i + 1}`));
 
       let result: SubmitResult;
@@ -171,7 +172,7 @@ export function ReportForm({ token, prefill, stamp: initialStamp }: ReportFormPr
       }
 
       if (result.status === "reported") {
-        keepSummary(token, result.requestNumber, {
+        keepSummary(result.requestNumber, {
           category: TENANT_CATEGORY_LABEL[category as Category],
           description: description.trim(),
           photoCount: ready.length,
@@ -317,8 +318,8 @@ export function ReportForm({ token, prefill, stamp: initialStamp }: ReportFormPr
       {/* Invisible bot check (T-01 Rules): people never see or reach this field. */}
       <div aria-hidden="true" className="sr-only">
         <label>
-          Website
-          <input ref={honeypotRef} type="text" name="website" tabIndex={-1} autoComplete="off" defaultValue="" />
+          Leave this empty
+          <input ref={honeypotRef} type="text" name={HONEYPOT_FIELD} tabIndex={-1} autoComplete="off" defaultValue="" />
         </label>
       </div>
 

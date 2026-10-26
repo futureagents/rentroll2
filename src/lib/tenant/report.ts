@@ -59,7 +59,8 @@ export const TENANT_MESSAGES = {
   /** T-01 States "Submission failed". */
   submitFailed: "Could not submit. Please try again.",
   /** T-01 Rules ask for "a plain message"; no wording is given (decisions §9 leaves it open). */
-  rateLimited: "You have sent 5 reports in the last hour. Please try again later, or call your landlord.",
+  // The budget is per flat (door sticker and tenant link share it), so it never says "you sent".
+  rateLimited: "5 reports have been sent for this flat in the last hour. Please try again later, or call your landlord.",
   /** D-28 replaces "Your landlord has been notified." Nothing notifies the landlord in v1. */
   onTheBoard: "Your landlord will see this on their board.",
   /** D-02: replaces T02-BTN-TRACK under a door token. E1 gives no wording. */
@@ -80,6 +81,9 @@ export const FIELD_MESSAGES = {
   name: `Please keep the name under ${NAME_MAX} characters.`,
   phone: "Enter a 10-digit mobile number.",
 } as const;
+
+/** The invisible bot check's honeypot (T-01 Rules): a name browsers do not autofill. */
+export const HONEYPOT_FIELD = "t01_leave_empty";
 
 /** The form's fields in reading order; the first one with an error is scrolled to. */
 export const REPORT_FIELDS = ["category", "description", "photos", "urgency", "name", "phone"] as const;

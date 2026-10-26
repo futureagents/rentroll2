@@ -143,6 +143,30 @@ describe("E4-1 (restated by D-04): a valid token with another landlord's or tena
   });
 });
 
+describe("T-02 under a door token shows only the request this browser just made (D-02)", () => {
+  it("refuses any request number without the submit's confirmation, without querying", async () => {
+    const repo = fakeRepo();
+    const door = (await resolveWith(repo, T.aDoorOccupied))!;
+    repo.calls.length = 0;
+    // R-0001 and R-0003 are the current tenancy's own requests, made through the tenant's link.
+    for (const n of ["R-0001", "R-0003"]) await expect(findOwnRequestWith(repo, door, n)).resolves.toBeNull();
+    expect(repo.calls).toEqual([]);
+  });
+
+  it("shows the confirmed request", async () => {
+    const repo = fakeRepo();
+    const door = (await resolveWith(repo, T.aDoorOccupied))!;
+    const own = await findOwnRequestWith(repo, door, "R-0001", { doorConfirmed: true });
+    expect(own?.requestNumber).toBe("R-0001");
+  });
+
+  it("needs no confirmation for the tenant's own link, which reaches T-03 anyway", async () => {
+    const repo = fakeRepo();
+    const link = (await resolveWith(repo, T.aActive))!;
+    expect((await findOwnRequestWith(repo, link, "R-0001"))?.requestNumber).toBe("R-0001");
+  });
+});
+
 describe("E4-8: a door token reaches T-01 and T-02 only (D-02)", () => {
   it("is refused by the guard every T-03, T-04, T-05 and tenant P-01 route must use", async () => {
     const repo = fakeRepo();

@@ -31,10 +31,7 @@ export default async function TenantPreview({ searchParams }: { searchParams: Pr
           </h1>
           <p className="text-body">{TENANT_MESSAGES.onTheBoard}</p>
         </section>
-        <SummaryBlock
-          token={token}
-          request={{ requestNumber: "R-0412", category: "Plumbing", reportedOn: "26 Oct 2026", status: "Received", photoCount: 2 }}
-        />
+        <SummaryBlock requestNumber="R-0412" category="Plumbing" reportedOn="26 Oct 2026" photoCount={2} />
         <div className="flex flex-col gap-3">
           {door && <p className="text-center text-small text-muted">{TENANT_MESSAGES.doorStatusNote}</p>}
           <SaveLinkButton path={`/u/${token}`} />
