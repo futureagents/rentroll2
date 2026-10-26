@@ -5,6 +5,8 @@
 //      (src/server/landlord or src/app/(landlord))
 //   3. the landlord route group imports the tenant route group
 //   4. src/server/tenant imports src/server/landlord
+//   5. tenant code (the tenant route group or src/server/tenant) imports src/server/composer,
+//      which holds the S-01 message writer and assistant (G-1, D-37)
 //
 // Usage: node scripts/check-boundaries.mjs [rootDir]
 
@@ -50,6 +52,7 @@ export function checkBoundaries(rootDir) {
     server: path.join(srcDir, "server"),
     serverLandlord: path.join(srcDir, "server", "landlord"),
     serverTenant: path.join(srcDir, "server", "tenant"),
+    serverComposer: path.join(srcDir, "server", "composer"),
     lib: path.join(srcDir, "lib"),
     landlordApp: path.join(srcDir, "app", "(landlord)"),
     tenantApp: path.join(srcDir, "app", "(tenant)"),
@@ -83,6 +86,9 @@ export function checkBoundaries(rootDir) {
       }
       if (isServerTenant && isInside(target, dirs.serverLandlord)) {
         report("src/server/tenant must not import src/server/landlord");
+      }
+      if ((isTenantApp || isServerTenant) && isInside(target, dirs.serverComposer)) {
+        report("tenant code must not import src/server/composer");
       }
     }
   }
