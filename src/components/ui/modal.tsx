@@ -1,7 +1,7 @@
 "use client";
-// PROMOTE: modal shell → A2 (new display-component row "Modal": 560px on desktop, full screen on
-// mobile, radius-md, shadow-2). S-01 is the first modal in the product; ConfirmDialog is the only
-// A2 dialog and is fixed to the question/consequence/action shape.
+// A2 · Modal. A content shell: 560px on desktop, full screen on mobile, radius-md, shadow-2. The
+// caller supplies the title (wired by `labelledBy`), body and actions; ConfirmDialog stays the
+// fixed question/consequence/action shape. Promoted from S-01's composer.
 // Built on the native <dialog>, which traps focus and returns it to the trigger (E5). Escape and
 // the backdrop call onDismiss so the composer can confirm before discarding edits.
 import { useEffect, useRef, type ReactNode } from "react";

@@ -7,20 +7,18 @@
 import Link from "next/link";
 import { useContext, useEffect, useId, useReducer, useRef, useState } from "react";
 
-import { Button, ConfirmDialog, SegmentedChoice, StatusChip, TextArea } from "@/components/ui";
+import { Button, Checkbox, ConfirmDialog, Modal, SegmentedChoice, StatusChip, TextArea } from "@/components/ui";
 import { Icon } from "@/components/ui/icons";
 import { COPIED_MESSAGE, COPIED_MS } from "@/components/ui/share";
 import { ToastContext, ToastView } from "@/components/ui/toast";
 import { formatMonth } from "@/lib/format";
 
 import { confirmSent, openComposer } from "./actions";
-import { Checkbox } from "./checkbox";
 import { rentContextChips } from "./context-line";
 import { requestDraft } from "./draft";
 import { handOff, outgoingText } from "./handoff";
 import { levelForTone, TONES, toneForLevel, type Tone } from "./ladder";
 import { initialState, reduce } from "./machine";
-import { Modal } from "./modal";
 import type { ComposerContext, ComposerTarget, LoadResult, SendChannel } from "./types";
 
 /** E1-02: shown after "Yes" is recorded. */

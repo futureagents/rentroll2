@@ -6,8 +6,8 @@ import "server-only";
 // id and nothing else.
 import { daysBetween, staleBoardNote } from "@/components/composer/context-line";
 import { parseLadderDays, preselectLevel } from "@/components/composer/ladder";
-import { buildUpiPaymentLink } from "@/components/composer/upi";
 import type { LoadResult, RentReminderContext } from "@/components/composer/types";
+import { buildUpiLink } from "@/lib/upi";
 import { createSupabaseServerClient } from "@/server/supabase/server";
 
 import { indiaDate, todayInIndia } from "./india-date";
@@ -135,7 +135,7 @@ export async function loadRentReminder(rentEntryId: string): Promise<LoadResult>
       agreementStartsOn: agreement.data.starts_on,
       signOff,
       payLink: landlord.data.upi_id
-        ? buildUpiPaymentLink({
+        ? buildUpiLink({
             upiId: landlord.data.upi_id,
             payeeName: signOff,
             amount: balance,
