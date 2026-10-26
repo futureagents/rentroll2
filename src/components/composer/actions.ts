@@ -45,7 +45,8 @@ export async function draftMessage(input: {
 /** "Did you send it?" → Yes. The one path that records a sent message (D-17). */
 export async function confirmSent(input: ConfirmSentInput): Promise<ConfirmSentResult> {
   const valid =
-    isUuid(input?.rentEntryId) &&
+    isUuid(input?.sendId) &&
+    isUuid(input.rentEntryId) &&
     TONES.some((tone) => tone.value === input.tone) &&
     CHANNELS.has(input.channel) &&
     typeof input.body === "string" &&

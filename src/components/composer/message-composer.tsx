@@ -163,14 +163,20 @@ function Composer({ context, onClose }: { context: ComposerContext; onClose: Mes
     const subject = `Rent for ${formatMonth(context.month)} — ${context.unitLabel}`;
     if (!handOff(channel, { phone: context.recipient.phone, email: context.recipient.email, subject }, text)) return;
     if (channel === "copy") setCopiedAt(Date.now()); // E1-03
-    dispatch({ type: "handedOff", channel });
+    dispatch({ type: "handedOff", channel, sendId: crypto.randomUUID() });
   };
 
   const yes = () => {
-    if (phase !== "confirming" || !state.channel) return;
+    if (phase !== "confirming" || !state.channel || !state.sendId) return;
     const body = outgoingText(state.text, payLink);
     dispatch({ type: "yes" });
-    confirmSent({ rentEntryId: context.rentEntryId, tone: state.tone, channel: state.channel, body })
+    confirmSent({
+      sendId: state.sendId,
+      rentEntryId: context.rentEntryId,
+      tone: state.tone,
+      channel: state.channel,
+      body,
+    })
       .then((result) => {
         if (!result.ok) return dispatch({ type: "saveFailed" });
         dispatch({ type: "saved" });

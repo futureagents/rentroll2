@@ -24,6 +24,7 @@ export async function recordConfirmedSend(input: ConfirmSentInput): Promise<Conf
     if (landlord.error || entry.error || !landlord.data || !entry.data) return { ok: false };
 
     const { error } = await supabase.from("message").insert({
+      id: input.sendId,
       landlord_id: landlord.data.id,
       kind: "rent_reminder",
       channel: input.channel,
@@ -32,7 +33,9 @@ export async function recordConfirmedSend(input: ConfirmSentInput): Promise<Conf
       level: levelForTone(input.tone), // the tone actually sent, not the pre-selection (D-41)
       body: input.body,
     });
-    return error ? { ok: false } : { ok: true };
+    // 23505: this send was already recorded (a retried "Yes" after a lost response). The row
+    // exists once, so the escalation history (D-41) counts it once.
+    return !error || error.code === "23505" ? { ok: true } : { ok: false };
   } catch {
     return { ok: false };
   }

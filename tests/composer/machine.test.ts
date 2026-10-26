@@ -8,6 +8,8 @@ function run(events: ComposerEvent[], start = initialState("gentle", true)): Com
   return events.reduce(reduce, start);
 }
 
+const SEND_ID = "5b0f3c7e-1d2a-4c3b-8e9f-0a1b2c3d4e5f";
+
 const drafted = (text = "Hi Suresh, rent reminder.", request = 1): ComposerEvent => ({
   type: "drafted",
   text,
@@ -17,7 +19,7 @@ const drafted = (text = "Hi Suresh, rent reminder.", request = 1): ComposerEvent
 
 describe("S-01 send confirmation", () => {
   it("writes only on Yes after a hand-off", () => {
-    const confirming = run([drafted(), { type: "handedOff", channel: "whatsapp" }]);
+    const confirming = run([drafted(), { type: "handedOff", channel: "whatsapp", sendId: SEND_ID }]);
     expect(confirming.phase).toBe("confirming");
     expect(reduce(confirming, { type: "yes" }).phase).toBe("saving");
   });
@@ -44,7 +46,7 @@ describe("S-01 send confirmation", () => {
     const state = run([
       drafted(),
       { type: "edit", text: "Edited text" },
-      { type: "handedOff", channel: "copy" },
+      { type: "handedOff", channel: "copy", sendId: SEND_ID },
       { type: "notYet" },
     ]);
     expect(state.phase).toBe("editing");
@@ -53,7 +55,7 @@ describe("S-01 send confirmation", () => {
   });
 
   it("a failed save stays on Did you send it? and can be retried", () => {
-    const failed = run([drafted(), { type: "handedOff", channel: "email" }, { type: "yes" }, { type: "saveFailed" }]);
+    const failed = run([drafted(), { type: "handedOff", channel: "email", sendId: SEND_ID }, { type: "yes" }, { type: "saveFailed" }]);
     expect(failed.phase).toBe("confirming");
     expect(failed.saveFailed).toBe(true);
     const saved = run([{ type: "yes" }, { type: "saved" }], failed);
@@ -61,8 +63,17 @@ describe("S-01 send confirmation", () => {
     expect(saved.recorded).toBe(true);
   });
 
+  it("keeps one send id per hand-off, so a retried Yes cannot record twice", () => {
+    const failed = run([drafted(), { type: "handedOff", channel: "whatsapp", sendId: SEND_ID }, { type: "yes" }, { type: "saveFailed" }]);
+    expect(reduce(failed, { type: "yes" }).sendId).toBe(SEND_ID);
+    const back = reduce(failed, { type: "notYet" });
+    expect(back.sendId).toBeNull();
+    const next = reduce(back, { type: "handedOff", channel: "copy", sendId: "another" });
+    expect(next.sendId).toBe("another");
+  });
+
   it("does not hand off an empty message", () => {
-    const state = run([drafted(), { type: "edit", text: "   " }, { type: "handedOff", channel: "whatsapp" }]);
+    const state = run([drafted(), { type: "edit", text: "   " }, { type: "handedOff", channel: "whatsapp", sendId: SEND_ID }]);
     expect(state.phase).toBe("editing");
   });
 });
@@ -86,7 +97,7 @@ describe("S01-BTN-CANCEL", () => {
   });
 
   it("closes from Did you send it? without a record", () => {
-    const state = run([drafted(), { type: "handedOff", channel: "whatsapp" }, { type: "cancel" }]);
+    const state = run([drafted(), { type: "handedOff", channel: "whatsapp", sendId: SEND_ID }, { type: "cancel" }]);
     expect(state.phase).toBe("closed");
     expect(state.recorded).toBe(false);
   });

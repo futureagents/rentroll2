@@ -54,6 +54,8 @@ export type LoadResult =
   | { ok: false; reason: "not_found" | "paid" | "failed" };
 
 export interface ConfirmSentInput {
+  /** Client-generated id for the message row, fixed per hand-off, so a retried "Yes" never writes twice. */
+  sendId: string;
   rentEntryId: string;
   tone: Tone;
   channel: SendChannel;

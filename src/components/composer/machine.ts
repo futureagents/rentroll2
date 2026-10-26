@@ -20,6 +20,8 @@ export interface ComposerState {
   restorable: string | null;
   includePayLink: boolean;
   channel: SendChannel | null;
+  /** Id of the message row this hand-off would record; a retried "Yes" reuses it (idempotent). */
+  sendId: string | null;
   /** A tone change waiting on "This will replace your edits." */
   pendingTone: Tone | null;
   /** Cancel waiting on the discard confirmation. */
@@ -40,7 +42,7 @@ export type ComposerEvent =
   | { type: "regenerate" }
   | { type: "restore" }
   | { type: "togglePayLink"; on: boolean }
-  | { type: "handedOff"; channel: SendChannel }
+  | { type: "handedOff"; channel: SendChannel; sendId: string }
   | { type: "notYet" }
   | { type: "yes" }
   | { type: "saved" }
@@ -60,6 +62,7 @@ export function initialState(tone: Tone, includePayLink: boolean): ComposerState
     restorable: null,
     includePayLink,
     channel: null,
+    sendId: null,
     pendingTone: null,
     confirmingCancel: false,
     saveFailed: false,
@@ -122,11 +125,11 @@ export function reduce(state: ComposerState, event: ComposerEvent): ComposerStat
 
     case "handedOff":
       if (state.phase !== "editing" || state.text.trim() === "") return state;
-      return { ...state, phase: "confirming", channel: event.channel, saveFailed: false };
+      return { ...state, phase: "confirming", channel: event.channel, sendId: event.sendId, saveFailed: false };
 
     case "notYet":
       // D-17: "Not yet" returns to the composer with the draft intact.
-      return state.phase === "confirming" ? { ...state, phase: "editing", channel: null } : state;
+      return state.phase === "confirming" ? { ...state, phase: "editing", channel: null, sendId: null } : state;
 
     case "yes":
       return state.phase === "confirming" ? { ...state, phase: "saving", saveFailed: false } : state;

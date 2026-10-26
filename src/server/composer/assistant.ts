@@ -62,6 +62,11 @@ export function acceptDraft(text: string, tone: Tone, context: RentReminderConte
   if (!draft || draft.length > MAX_DRAFT_CHARS) return null;
   if (/[{}[\]<>]|\*\*|^#/m.test(draft)) return null; // placeholders or markdown
   const facts = rentReminderFacts(context);
+  // Only the outstanding amount may appear, and Gentle states none: no invented figures.
+  const figures = draft.match(/₹\s?[\d,]+/g) ?? [];
+  if (tone === "gentle" ? figures.length > 0 : figures.some((f) => f.replace(/\s/g, "") !== facts.amount_outstanding)) {
+    return null;
+  }
   if (tone !== "gentle" && !(draft.includes(facts.amount_outstanding) && draft.includes(facts.due_date))) return null;
   if (tone === "formal" && !draft.includes(facts.agreement_date)) return null;
   return draft;

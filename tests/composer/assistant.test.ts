@@ -97,6 +97,12 @@ describe("acceptDraft", () => {
     expect(acceptDraft(formal, "formal", context)).toBe(formal);
   });
 
+  it("rejects invented figures: none for Gentle, only the outstanding amount otherwise", () => {
+    expect(acceptDraft("Hi Suresh, the ₹18,000 rent is due.", "gentle", context)).toBeNull();
+    const extra = "Hi Suresh, ₹18,000 was due on 05 Oct 2026, plus a ₹500 late fee.";
+    expect(acceptDraft(extra, "direct", context)).toBeNull();
+  });
+
   it("rejects empty, overlong, placeholder and markdown answers", () => {
     expect(acceptDraft("   ", "gentle", context)).toBeNull();
     expect(acceptDraft("x".repeat(1201), "gentle", context)).toBeNull();
