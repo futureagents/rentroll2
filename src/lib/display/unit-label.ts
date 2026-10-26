@@ -1,27 +1,36 @@
 // How a unit is named on screen, in drafts and in exports. Client-safe; imports nothing.
 //
-// Unit numbers are unique within a property, not across an account (D-39), so "4C" alone is
-// ambiguous for a landlord with two buildings, yet the spec shows the bare form on L-03, L-04
-// and S-01. Every place that names a unit uses `unitLabel`, except a table that already shows
-// the property in its own column (L-08). The format is decided once, here:
+// Unit numbers are unique within a property, not across an account (D-39), so "Flat 4C" alone is
+// ambiguous for a landlord with two buildings, yet the spec shows the bare form on L-03, L-04 and
+// S-01. Every place that names a unit uses `unitLabel`, except a table that already shows the
+// property in its own column (L-08). The format is decided once, here, and it is the spec's own
+// qualified form (T01-HDR "Flat 2A, Kulkarni Apartments"; D-34 "Flat 2A, Kulkarni Apartments, …"):
 //
-//   unit number, property name      →  "4C, Kulkarni Apartments"
+//   Flat <unit number>, <property name>      →  "Flat 4C, Kulkarni Apartments"
 //
-// The unit number comes first because it is what the landlord scans for; the comma reads
-// naturally inside a sentence ("Plumbing reported in 4C, Kulkarni Apartments") and matches the
-// P-03 QR alt text. Both parts are shown as the landlord typed them (a unit number entered as
-// "Flat 4C" stays "Flat 4C, Kulkarni Apartments"); nothing is abbreviated or truncated.
+// - Always qualified, even for a landlord with one property: a second building can be added at
+//   any time, and a label that changes shape when it is would break search, exports and habit.
+// - "Flat " is added only when the unit number is a bare code ("4C", "G1", "B-12"). A number the
+//   landlord typed with its own word ("Shop 2", "Room 5", "Flat 4C", "PG bed 3") is kept as typed.
+// - Nothing is abbreviated or truncated; tables wrap.
 
 export interface UnitLabelInput {
   /** `unit.unit_number`. */
   unitNumber: string;
-  /** `property.name`. Missing only if the caller did not select it; the label then falls back to the unit number. */
+  /** `property.name`. Missing only if the caller did not select it; the label then names the unit alone. */
   propertyName?: string | null;
 }
 
-/** "4C, Kulkarni Apartments". The one qualified form of a unit's name. */
-export function unitLabel({ unitNumber, propertyName }: UnitLabelInput): string {
+/** "Flat 4C". The unit on its own, for use only beside an explicit property (a Property column). */
+export function unitName(unitNumber: string): string {
   const unit = unitNumber.trim();
+  if (unit === "") return "";
+  return /^[A-Za-z]+\s/.test(unit) ? unit : `Flat ${unit}`;
+}
+
+/** "Flat 4C, Kulkarni Apartments". The one qualified form of a unit's name. */
+export function unitLabel({ unitNumber, propertyName }: UnitLabelInput): string {
+  const unit = unitName(unitNumber);
   const property = propertyName?.trim() ?? "";
   if (property === "") return unit;
   if (unit === "") return property;
