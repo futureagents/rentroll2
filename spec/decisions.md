@@ -105,6 +105,16 @@ P-01 for the landlord is `/print/receipt/:paymentId` (signed in). Both routes re
 
 **Consequences.** Resolves: product.md §5 stage-2 welcome OPEN; the C-3 and C-11 welcome entries in the §12 connections OPEN are closed as "not a screen in v1". No new S-01 entry point.
 
+### D-44 · T-01's rate limit is counted per tenancy
+
+**Conflict.** T-01: "Rate limit: 5 submissions per token per hour." Two tokens reach T-01 for the same tenancy, the door token and the tenant token (D-01, D-02), and the schema does not record which one created a request.
+
+**Why not both.** Counting per token needs to know which link made each request. Without that, the server cannot keep two budgets.
+
+**Decision.** The T-01 limit is 5 reports per resolved tenancy per hour, shared by the door link and the tenant link. That is never looser than per token. The wording, which §9 leaves open, is "5 reports have been sent for this flat in the last hour. Please try again later, or call your landlord."
+
+**Consequences.** Supersedes T-01's "per token". Accepted costs, from the privacy review of PR #17: someone holding the door sticker can use up the tenant's budget for an hour; the message tells a sticker holder that the flat reported recently; the count and the insert are not atomic. A `request.reported_with` column (`door | tenant_link`) and a transactional insert would allow an exact per-token count; until a schema change adds them, this decision stands. Source: PR #17, approved by the product owner on 2026-10-26.
+
 ---
 
 ## 2 · Core entities
@@ -319,6 +329,26 @@ A settled settlement shows `L13-BTN-CORRECT` † ("Issue a correction"), which c
 
 **Consequences.** Resolves: L-05 edit OPEN. L05-BTN-REMIND and L05-BTN-MARKPAID are hidden on a Paid row; L05-BTN-PAYLINK remains (a tenant may want the QR for next month); L05-BTN-REMIND is Primary only while unpaid.
 
+### D-42 · Bulk mark-paid on L-04
+
+**Conflict.** L-04 defines Mark paid only as the per-row inline form (L04-FRM-MARKPAID). With fifty units that is fifty forms, and the dashboard is only as truthful as the landlord's data entry.
+
+**Why not both.** — (an addition; not in the source spec)
+
+**Decision.** L-04 gains row checkboxes, "Select all unpaid" and "Mark n paid". Each selected row is recorded at its full balance (D-10), received today, with no reference and one receipt per row (D-12), behind a confirm dialog stating the count and the total. Rows already Paid are skipped. Part payments and references still use the per-row form. The server reads each balance at record time; the client sends rent entry ids only. The E1-01 toast becomes "n payments recorded. Receipts RR-0848 to RR-0859 created." with one 10-second Undo that voids the whole batch (D-11).
+
+**Consequences.** No schema change. One multi-row insert per batch keeps it all-or-nothing. G-1 and G-2 are unaffected. Source: PR #15, at the product owner's direction.
+
+### D-43 · "On time" on L11-SEC-PAYMENTS
+
+**Conflict.** L11-SEC-PAYMENTS shows a "paid-on-time percentage", but "on time" is not defined.
+
+**Why not both.** A grace period and the due date give different numbers, and this figure will be quoted at people.
+
+**Decision.** On time means **paid in full on or before the due date** (`due_on`, D-09): payments received on or before `due_on` cover `amount_due`. A month counts once it is settled or its due date has passed; a month still within its due date and unpaid is left out. Voided payments never count (D-11). L-11 shows the definition word for word in a tooltip on the figure, "On time means paid in full on or before the due date.", plus "n of m months".
+
+**Consequences.** Resolves: L-11 paid-on-time OPEN. Source: PR #18.
+
 ---
 
 ## 3 · Tenant versus landlord: privacy
@@ -465,7 +495,7 @@ Status mapping New → Received; the rest identical. A reopened request shows "R
 
 **Consequences.** Resolves: S-01 level-example OPEN, S-01 days-1–2 OPEN, S-01 sequence OPEN, S-01 calls OPEN, S-01 tone-for-non-rent OPEN, S-01 clause OPEN, S-01 paylink OPEN, L-04 pre-day-3 OPEN, L-05 calls OPEN, product.md §11 warm/gentle OPEN, product.md §7 wireframe-B OPEN. S01-HDR and L05-HDR show "Flat 4C · Kulkarni Apartments" when the landlord has more than one property (resolves both header OPENs).
 
-**Superseded in part by D-41:** the pre-selection now also depends on confirmed sends, and logged calls count toward it. The rest of D-38 stands.
+**Superseded in part by D-41:** the pre-selection now also depends on confirmed sends, and logged calls count toward it. **Superseded in part by D-47:** S01-HDR and L05-HDR use the one qualified unit label, "Flat 4C, Kulkarni Apartments", always. The rest of D-38 stands.
 
 ### D-41 · Tone pre-selection is capped by confirmed contacts; the stale-board warning
 
@@ -490,6 +520,36 @@ Status mapping New → Received; the rest identical. A reopened request shows "R
 
 **Consequences.** Supersedes D-38's "does not depend on how many reminders were sent" and its calls sentence. Re-resolves the S-01 sequence OPEN and calls OPEN and the L-05 calls OPEN: calls count. L04-BTN-REMIND ("pre-loaded with the escalation level matching days overdue") and L05-BTN-REMIND ("at the correct escalation level") mean this rule. There is no schema change, because the level and the warning read existing columns. Two E1 messages are added (E1-12 †, E1-13 †). A landlord who checks the board and finds nothing to record writes nothing, so the warning can show when the board is in fact current. That is the accepted cost: "check before sending" is still true.
 
+### D-45 · L-05's message icon
+
+**Conflict.** L-05's message icon has no interaction.
+
+**Why not both.** —
+
+**Decision.** It opens S-01 for the rent entry, like L05-BTN-REMIND, passing only the rent entry id and never a level (D-41). A2's icon set has no message glyph, so it uses `note` until one is added.
+
+**Consequences.** Resolves: L-05 message-icon OPEN. Source: PR #15, the product owner's decision.
+
+### D-46 · L-11's message and mail actions open S-01
+
+**Conflict.** L11-SEC-CONTACT offers message and mail actions with no target. The L-11 email-composer OPEN (L-11:28) is resolved by D-17 only implicitly.
+
+**Why not both.** A `mailto:` or direct WhatsApp link would be a second send path beside S-01 (G-1, D-17).
+
+**Decision.** The contact block's message button opens S-01. So do its mail button (shown only when an email exists) and L11-BTN-SENDAGREEMENT. Never `mailto:` and never a direct WhatsApp link: there is one send path in the whole product.
+
+**Consequences.** Resolves: L-11 message OPEN, L-11 email-composer OPEN. S-01 needs two new targets, `tenant_message` (tenancy, channel) and `agreement_email` (tenancy, agreement), and `message.kind` needs matching values with their parent rule (a migration). Until then the three buttons render disabled with the reason; nothing is drafted or sent. Source: PR #18.
+
+### D-47 · One unit label, always qualified
+
+**Conflict.** Unit numbers are unique within a property, not across an account (D-39), yet L-03, L-04 and S-01 show the bare form "Flat 4C". D-38's Consequences show "Flat 4C · Kulkarni Apartments" in S01-HDR and L05-HDR, and only when the landlord has more than one property. T01-HDR and D-34 use "Flat 2A, Kulkarni Apartments".
+
+**Why not both.** A unit needs one name across screens, filters and exports. A label that changes shape when a second property is added breaks search, exports and habit.
+
+**Decision.** Everywhere a unit is named, it is `unitLabel()` from `src/lib/display/unit-label.ts`: **"Flat 4C, Kulkarni Apartments"**, always qualified, even for a landlord with one property. The one exception is a table with its own Property column (L-08), which uses `unitName()` ("Flat 4C"). "Flat " is added only to a bare code; a unit number typed with its own word ("Shop 2", "Room 5") is kept as typed. Nothing is abbreviated or truncated.
+
+**Consequences.** Supersedes D-38's header sentence and re-resolves the L-05 and S-01 header OPENs. S01-HDR and L05-HDR use the comma form unconditionally, and any screen that builds its own unit label switches to the helper. Source: PR #13, PR #18.
+
 ---
 
 ## 6 · Navigation and missing flows
@@ -508,6 +568,68 @@ Status mapping New → Received; the rest identical. A reopened request shows "R
 - L-02 unit rows require unit number and rent; type and deposit are optional. `unit.type` is free text with suggestions (1RK, 1BHK, 2BHK, PG bed); no enum.
 
 **Consequences.** Resolves: L-14 route OPEN, L-15 route OPEN, L-11 page-type OPEN, foundations row-click OPEN, foundations account OPEN, L-08 add-property OPEN, L-03 add-property OPEN, L-09 tenant-form OPEN, L-09 move-in-photos OPEN, product.md §5 stage-2 photos OPEN, cross-cutting E2-06 OPEN, L-10 add-tenant OPEN, L-13 add-tenant OPEN, L-02 skip OPEN, L-02 type OPEN, L-02 required-fields OPEN, L-08 uniqueness OPEN (unit numbers unique within a property everywhere), L-02 links-at-setup OPEN (links are created with the unit; L-02 does not show them), L-08 link-creation OPEN, L-09 edit/delete OPEN (`L09-BTN-EDITUNIT` † edits number/type/rent/deposit; delete is allowed only for a unit with no tenancy history, Danger, confirmed), L-11 share-link OPEN (M-6's "share the unit link" lives on L-09 only).
+
+**Amended by D-48:** the move-in photos are a second, skippable step of L09-FRM-ADDTENANT.
+
+### D-48 · The condition-photo step is skippable, and says what skipping costs
+
+**Conflict.** D-39 puts move-in photos in L09-FRM-ADDTENANT. SM-5 measures "Units with move-in photos attached", and product.md says the settlement feature is decorative without them. Nothing says whether the form can be saved without photos, or what the landlord is told.
+
+**Why not both.** Forcing photos blocks adding a tenant who is already moving in; silently allowing none defeats SM-5.
+
+**Decision.** L09-FRM-ADDTENANT has a second step, "Condition photos" (S-04, up to 10), which can be skipped. With no photos the step says plainly **"Without this, a deduction at move-out has no evidence behind it."** and the primary button reads **"Save without photos"**, so skipping is a deliberate act. The same sentence appears on L-09 (Overview and Photos tab) for any tenancy with no move-in photos, with a way to add them.
+
+**Consequences.** Amends D-39 by addition; its field list is unchanged. SM-5 can be read from `document.type = move_in_photo` per tenancy. Source: PR #18.
+
+### D-49 · The filter box on L-08
+
+**Conflict.** L03-CRD-OCCUPANCY routes to L-08 "filtered to vacant units", but L-08 has no filter, and A3's global search is unspecified.
+
+**Why not both.** —
+
+**Decision.** A client-side free-text filter box sits under the L-08 header. Every typed word must match one of unit, property, type, current tenant or the status word. `/units?q=vacant` is how L03-CRD-OCCUPANCY routes "filtered to vacant units". v1 still has no global search.
+
+**Consequences.** Resolves: L-08 filtered-to-vacant OPEN, the A3 global-search OPEN for L-08. Supersedes §9's "filters on L-08". L-03 links the occupancy card to `/units?q=vacant`. Source: PR #18.
+
+### D-50 · L-10's default segment and filter box
+
+**Conflict.** L10-SEG-FILTER has no default, and L-10 has no way to find one tenant in a long list.
+
+**Why not both.** —
+
+**Decision.** L10-SEG-FILTER defaults to **Current**. The same filter box as D-49 sits beside the segments and narrows within the chosen one: name, unit, property, phone (digits match however they are typed) and status. It does not replace the segments.
+
+**Consequences.** Resolves: L-10 default-filter OPEN. Source: PR #18.
+
+### D-51 · L-10's Status column values
+
+**Conflict.** L-10's Status column has no stated values.
+
+**Why not both.** —
+
+**Decision.** Current / On notice / Past, exactly the segment words. Each tenancy is exactly one: Past = `ended` or `settled` (D-05); On notice = active with `notice_vacate_on` set (D-13); Current = any other active tenancy. Chip tones are success / warning / neutral, each chip carrying its word (A1).
+
+**Consequences.** Resolves: L-10 status-values OPEN. Source: PR #18.
+
+### D-52 · L-09's header status chip
+
+**Conflict.** L-09's header shows a status chip with no stated values.
+
+**Why not both.** —
+
+**Decision.** The same chip and the same three values as L08-CHP-STATUS: Occupied, Vacant, Notice period.
+
+**Consequences.** Resolves: L-09 status-chip OPEN. Source: PR #18.
+
+### D-53 · L08-BTN-PRINTQR with nothing selected
+
+**Conflict.** L08-BTN-PRINTQR prints "one card per selected unit"; nothing says what it does when no row is selected.
+
+**Why not both.** —
+
+**Decision.** With nothing selected it prints every unit the current filter shows (D-49); with no filter, every unit. This is the same rule as §9's precedent for E2-03 from an empty L-06. With rows selected, it prints the selected rows that are visible.
+
+**Consequences.** Resolves: L-08 PRINTQR OPEN. Source: PR #18.
 
 ---
 
@@ -635,7 +757,7 @@ These do not affect schema, security, tenant/landlord behaviour, navigation, pay
 
 **UI, wording and layout only**
 - index.md: cover counts; sidebar reachability; build-phase ordering (phases 3–5 interleave as the OPEN describes; the tracker's claim is simply wrong).
-- foundations: `muted` as a chip colour; `body` name clash; typeface; display token on L13-SEC-BALANCE; fixed sizes vs the spacing scale; one-primary rule on L-13/L-05; text-area cap on S01-FLD-MESSAGE; 2-second copy toast; empty-state "None" actions; filters on L-08/L-13/L-14; "key fields" per table; panel alongside vs over.
+- foundations: `muted` as a chip colour; `body` name clash; typeface; display token on L13-SEC-BALANCE; fixed sizes vs the spacing scale; one-primary rule on L-13/L-05; text-area cap on S01-FLD-MESSAGE; 2-second copy toast; empty-state "None" actions; filters on L-13/L-14 (L-08: D-49); "key fields" per table; panel alongside vs over.
 - cross-cutting: rate-limit and five-attempt wording; empty states for L-05/L-07/L-09/L-10/L-11/L-13/L-14; E2-02 month name (it is the selected month); E2-03 from an empty L-06 (prints all units); A1 contrast failures (tokens adjust to meet 4.5:1 — a design-token task).
 - L-01: validate-on-blur vs on-submit; "trusted device"; E4-6 precedence (return to the intended screen, else L-02/L-03).
 - L-03: order within groups (by days late / days remaining / age); 30-vs-90 overlap (highest group once); expired agreements (group 3, top); which button per row (Remind for rent, Open for requests and agreements); collected-vs-last-month format.
