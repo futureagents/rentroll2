@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 // Tenant route group. A3: "Tenant screens have no navigation at all — no sidebar, no menu,
@@ -11,6 +12,14 @@ import type { ReactNode } from "react";
 //  - the shell components themselves return null on any /u/… path (isTenantPath in nav.ts).
 // Nothing in here may import src/app/(landlord) or src/server/landlord either
 // (scripts/check-boundaries.mjs).
+//
+// The token is a bearer credential in the URL (D-01): no Referer carries it to another site, and
+// no search engine indexes a tenant page.
+export const metadata: Metadata = {
+  referrer: "no-referrer",
+  robots: { index: false, follow: false },
+};
+
 export default function TenantLayout({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
