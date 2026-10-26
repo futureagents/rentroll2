@@ -3,7 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { IsoDate } from "@/app/(landlord)/rent/_lib/calendar";
-import { validateAmountEdit, validatePayment } from "@/app/(landlord)/rent/_lib/payments";
+import { planBulkPayments, validateAmountEdit, validatePayment } from "@/app/(landlord)/rent/_lib/payments";
 import { deriveRentState, type PaymentForStatus } from "@/app/(landlord)/rent/_lib/status";
 import { isCallOutcome } from "@/app/(landlord)/rent/_lib/timeline";
 
@@ -126,6 +126,33 @@ export async function recordPayments(
     ok: true,
     payments: inserted.map((p) => ({ id: p.id, rentEntryId: p.rent_entry_id, receiptNumber: p.receipt_number })),
   };
+}
+
+/**
+ * Bulk mark-paid: the client sends only which rows; each row's balance is read here, at the
+ * moment of recording, so a stale screen can never overpay. Received today, no reference.
+ */
+export async function recordFullBalances(
+  db: SupabaseClient,
+  landlordId: string,
+  input: { rentEntryIds: string[]; today: IsoDate },
+): Promise<Result<{ payments: { id: string; rentEntryId: string; receiptNumber: string }[]; alreadyPaid: string[] }>> {
+  const ids = [...new Set(input.rentEntryIds)];
+  if (ids.length === 0) return { ok: false, error: "Choose at least one month to mark paid." };
+  const loaded = await loadEntries(db, ids, input.today);
+  if ("error" in loaded) return { ok: false, error: SAVE_FAILED };
+  if (ids.some((id) => !loaded.byId.has(id))) return { ok: false, error: NOT_FOUND };
+
+  const plan = planBulkPayments(ids.map((id) => ({ id, state: loaded.byId.get(id)!.state })));
+  if (plan.payments.length === 0) return { ok: false, error: "Everything selected is already paid." };
+
+  const result = await recordPayments(db, landlordId, {
+    items: plan.payments,
+    receivedOn: input.today,
+    reference: "",
+    today: input.today,
+  });
+  return result.ok ? { ...result, alreadyPaid: plan.alreadyPaid } : result;
 }
 
 const VOID_NOTES = {

@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-import { editAmountDue, logCall, recordPayments, voidPayments } from "@/server/landlord/rent/mutations";
+import { editAmountDue, logCall, recordFullBalances, recordPayments, voidPayments } from "@/server/landlord/rent/mutations";
 
 import { fakeDb } from "./fake-db";
 
@@ -112,6 +112,31 @@ describe("bulk mark-paid", () => {
     });
     expect(result).toEqual({ ok: false, error: "This month is already paid." });
     expect(db.ops.some((op) => op.table === "payment" && op.action === "insert")).toBe(false);
+  });
+
+  it("computes each balance on the server from the ids alone, skipping rows already paid", async () => {
+    const db = fakeDb(seed());
+    const result = await recordFullBalances(db.client, LANDLORD, { rentEntryIds: ["e-4c", "e-f1", "e-1a"], today: TODAY });
+    expect(result).toEqual({
+      ok: true,
+      payments: [
+        { id: expect.any(String), rentEntryId: "e-4c", receiptNumber: "RR-0847" },
+        { id: expect.any(String), rentEntryId: "e-f1", receiptNumber: "RR-0848" },
+      ],
+      alreadyPaid: ["e-1a"],
+    });
+    expect(db.tables.payment.slice(-2).map((p) => [p.amount, p.received_on, p.reference])).toEqual([
+      [18_000, TODAY, null],
+      [4_000, TODAY, null],
+    ]);
+  });
+
+  it("says so when every selected row is already paid", async () => {
+    const db = fakeDb(seed());
+    expect(await recordFullBalances(db.client, LANDLORD, { rentEntryIds: ["e-1a"], today: TODAY })).toEqual({
+      ok: false,
+      error: "Everything selected is already paid.",
+    });
   });
 
   it("refuses the same rent entry twice in one batch", async () => {
