@@ -1,7 +1,7 @@
 import "server-only";
 
-// S-01b · Assistant drafting, server-side only (D-37). The API key is read from the server
-// environment here and nowhere else; it is never prefixed NEXT_PUBLIC_ and never reaches a client
+// S-01b · Assistant drafting, server-side only (D-37). The API key is read through src/server/env.ts
+// and used here and nowhere else; it is never prefixed NEXT_PUBLIC_ and never reaches a client
 // bundle. The assistant receives only the fields a rent reminder needs (D-37: first name, unit
 // label, amounts and dates), never a phone, email, cost or any other unit. It drafts into the
 // editable field; nothing it writes is sent without the landlord (G-1). Any failure, refusal,
@@ -12,6 +12,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import type { Tone } from "@/components/composer/ladder";
 import type { RentReminderContext } from "@/components/composer/types";
 import { formatDate, formatMonth, formatRupees } from "@/lib/format";
+import { anthropicApiKey } from "@/server/env";
 
 const MODEL = "claude-opus-5-5";
 /** Server-side budget, inside the composer's 4-second ceiling (E3) with room for the round trip. */
@@ -36,7 +37,7 @@ const SYSTEM = [
 let client: Anthropic | null = null;
 
 function anthropic(): Anthropic | null {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = anthropicApiKey();
   if (!apiKey) return null;
   client ??= new Anthropic({ apiKey, maxRetries: 0, timeout: ASSISTANT_BUDGET_MS });
   return client;
