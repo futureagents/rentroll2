@@ -235,6 +235,14 @@ export function RentPanel({
                     <Icon name="call" />
                   </a>
                 </Tooltip>
+                {/* The message icon opens S-01 (user decision on the L-05 message-icon OPEN). */}
+                <Button
+                  variant="icon"
+                  icon="note"
+                  label={`Message ${source.tenantName}`}
+                  disabled
+                  disabledReason={COMPOSER_PENDING}
+                />
                 <CopyButton text={source.tenantPhone} label="Copy phone number" />
               </div>
             ) : null}

@@ -241,8 +241,8 @@ export async function editAmountDue(
 
 /**
  * L05-BTN-LOGCALL: "Saves to the timeline as a reminder record with method call" — a `message`
- * row of kind `call` (D-17). It appears in the reminder history but does not change the tone
- * S-01 pre-selects (D-38).
+ * row of kind `call` (D-17), shown in the reminder history. How calls weigh on S-01's tone
+ * pre-selection is the composer's rule (D-38; D-41 proposed in PR #11).
  */
 export async function logCall(
   db: SupabaseClient,
