@@ -77,7 +77,12 @@ export async function submitReportWith(deps: SubmitDeps, token: unknown, form: F
       return { status: "retry", message: TENANT_MESSAGES.rateLimited };
     }
     const created = await deps.repo.createRequest(resolved.scope, { report: report.value, photos: photos.photos });
-    deps.onReported?.(resolved.view.kind, created.requestNumber);
+    try {
+      deps.onReported?.(resolved.view.kind, created.requestNumber);
+    } catch {
+      // The request exists; saying "Could not submit" now would invite a duplicate. Without the
+      // confirmation a door-token T-02 shows E1-10, which is the safe side.
+    }
     return { status: "reported", requestNumber: created.requestNumber };
   } catch (error) {
     // The step and code only (repo.ts never puts row values in its messages); never the token.

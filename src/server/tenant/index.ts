@@ -3,9 +3,9 @@ import "server-only";
 import { createSupabaseAdminClient } from "@/server/supabase/admin";
 
 import { botKey, issueStamp } from "./bot-check";
-import { CONFIRMATION, confirmationKey, issueConfirmation, verifyConfirmation } from "./confirmation";
+import { CONFIRMATION, confirmationKey, issueConfirmation } from "./confirmation";
 import { createSupabaseTenantRepo } from "./repo";
-import { findOwnRequestWith, onlyTenantLink, resolveWith, type ResolvedTenant } from "./resolve";
+import { findConfirmedRequestWith, onlyTenantLink, resolveWith, type ResolvedTenant } from "./resolve";
 import { submitReportWith } from "./submit";
 
 // Tenant (token-scoped) server code. Routes under src/app/(tenant) import from here only.
@@ -31,11 +31,7 @@ export function resolveTenantToken(token: unknown): Promise<ResolvedTenant | nul
  * door token, only with the confirmation cookie the submit set for that number (D-02).
  */
 export function findOwnRequest(token: string, resolved: ResolvedTenant, requestNumber: unknown, confirmation: unknown) {
-  const doorConfirmed =
-    resolved.view.kind === "door" &&
-    typeof requestNumber === "string" &&
-    verifyConfirmation(confirmationKey(), token, requestNumber, confirmation, Date.now());
-  return findOwnRequestWith(repo(), resolved, requestNumber, { doorConfirmed });
+  return findConfirmedRequestWith({ repo: repo(), confirmationKey, now: Date.now }, token, resolved, requestNumber, confirmation);
 }
 
 /** T-01 render stamp for the invisible bot check. */

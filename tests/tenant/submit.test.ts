@@ -88,6 +88,17 @@ describe("onReported tells the caller which kind of link reported (T-02 confirma
     expect(repo.created).toHaveLength(2);
   });
 
+  it("still reports success if the hook throws after the row exists (no duplicate submits)", async () => {
+    const { repo, deps } = setup();
+    const result = await submitReportWith(
+      { ...deps, onReported: () => { throw new Error("key unavailable"); } },
+      T.aDoorOccupied,
+      form(T.aDoorOccupied),
+    );
+    expect(result).toEqual({ status: "reported", requestNumber: "R-0101" });
+    expect(repo.created).toHaveLength(1);
+  });
+
   it("is not called when nothing was created", async () => {
     const { deps } = setup();
     const seen: string[] = [];

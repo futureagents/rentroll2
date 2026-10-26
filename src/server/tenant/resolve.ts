@@ -5,6 +5,7 @@ import { nationalDigits, TENANT_CATEGORY_LABEL, TENANT_STATUS_WORD, unitLabel } 
 
 import type { OwnRequestView, TenantHeader, TenantRequestView, TenantView } from "@/lib/tenant/view";
 
+import { verifyConfirmation } from "./confirmation";
 import type { RequestRow, TenantRepo, TenantScope } from "./repo";
 
 export type { OwnRequestView, TenantHeader, TenantRequestView, TenantView };
@@ -109,6 +110,24 @@ export async function findOwnRequestWith(
   } catch {
     return null;
   }
+}
+
+/**
+ * T-02 as the page calls it: the door-token confirmation (confirmation.ts) is checked here, for
+ * this token and this exact request number, and nowhere else.
+ */
+export function findConfirmedRequestWith(
+  deps: { repo: TenantRepo; confirmationKey: () => Uint8Array; now: () => number },
+  token: string,
+  resolved: ResolvedTenant,
+  requestNumber: unknown,
+  confirmation: unknown,
+): Promise<OwnRequestView | null> {
+  const doorConfirmed =
+    resolved.view.kind === "door" &&
+    typeof requestNumber === "string" &&
+    verifyConfirmation(deps.confirmationKey(), token, requestNumber, confirmation, deps.now());
+  return findOwnRequestWith(deps.repo, resolved, requestNumber, { doorConfirmed });
 }
 
 /**
