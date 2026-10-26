@@ -3,7 +3,11 @@
 
 import { SIGN_IN_PATH } from "./paths";
 
-/** Where a Google sign-in lands when no E4-6 `next` was carried: the L-04 rent board. */
+/**
+ * Where a Google sign-in lands when no E4-6 `next` was carried: the L-04 rent board. L-01 LEADS
+ * TO sends a brand-new account to L-02 (SETUP_PATH) instead, but /setup is not built yet; switch
+ * new accounts there when it lands.
+ */
 export const OAUTH_LANDING_PATH = "/rent";
 
 /** Query parameter on /auth/callback naming the flow, so the reset flow keeps its own handling. */
