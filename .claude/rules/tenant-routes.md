@@ -46,6 +46,7 @@ tenant code, even if it is not rendered.
 - voided payments, internal ids (uuids), error codes
 Sole exception: amounts of the tenant's own recorded payments on T-05 and on P-01 opened from T-05.
 The P-01 payment QR carries no amount.
+Cost-privacy exception (D-17, D-27, D-37), not a bug: a tenant-facing screen never renders a cost from a stored field; a cost may leave the system only inside a message the landlord composed and sent (e.g. the L07-CHK-TENANTLIABLE payment request; T-03 echoing the landlord-sent `tenant_update` body verbatim is that same message, D-17 — never scrub or filter it); tenant update drafts are built from status and category only — never cost, vendor, or vendor rate.
 
 ## May write — one thing (D-29, D-31, T-01)
 - Create a `request` with `reported_via = tenant_link`, attached to the token's current tenancy, up

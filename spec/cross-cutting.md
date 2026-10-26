@@ -10,6 +10,7 @@ Source: *RentRoll UI/UX Specification v1.0*, "How to read this document" and Par
 
 - **G-1** — No message ever leaves the system without the landlord pressing send — the assistant drafts into an editable field and never dispatches.
 - **G-2** — No tenant-facing screen ever queries or displays rent amounts, repair costs, other units, or other tenants.
+- **Cost-privacy exception (D-17, D-27, D-37) — not a bug:** a tenant-facing screen never renders a cost from a stored field; a cost may leave the system only inside a message the landlord composed and sent (G-1) — the L07-CHK-TENANTLIABLE payment request is one, and T-03 showing the landlord-sent tenant update verbatim (D-17) is that same message; system-written tenant update drafts are built from status and category only — never cost, vendor, or vendor rate.
 
 Any ticket that appears to breach either rule should be escalated, not implemented.
 
