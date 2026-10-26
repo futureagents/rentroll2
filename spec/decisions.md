@@ -279,6 +279,18 @@ A settled settlement shows `L13-BTN-CORRECT` † ("Issue a correction"), which c
 
 **Consequences.** Resolves: L-01 sign-up fields OPEN (reset wording and the set-new-password step are UI-only and stay open), L-15 name/phone OPEN, L-15 escalation-default OPEN, L-15 UPI validation OPEN (same `name@handle` shape as L-02), L-15 ladder-validation OPEN (ascending, 1–60). SM-6 uses the auth provider's last-sign-in timestamp; no sign-in history table in v1.
 
+### D-54 · Email confirmation is off for the teaching build; on, with custom SMTP, before any real landlord
+
+**Conflict.** L-01 offers email and password sign-up and, since PR #25, "Continue with Google". Supabase Auth links identities automatically by email: a first Google sign-in whose email matches an existing user joins that user (and its `landlord` row), and there is no setting to turn automatic linking off. That linking is only safe when every existing email was proven by its owner, which needs "Confirm email" on. With it on, the hosted project (`irzgoabptpydarfgvena`) sends through Supabase's built-in test mailer, which is exhausted: every sign-up fails with 429 `over_email_send_rate_limit`, so no account can be created at all.
+
+**Why not both.** Confirmation needs working email. Until a custom SMTP sender is configured, the project can have confirmation or sign-ups, not both.
+
+**Decision.** For the teaching build, "Confirm email" is **off** on the hosted project. Before any real landlord uses the app, a custom SMTP sender (Authentication → Emails → SMTP Settings) is configured and "Confirm email" is turned back **on**. Neither step needs a code change.
+
+**The squatting vector, accepted only for the teaching build.** With confirmation off, Supabase sets `email_confirmed_at` the moment an account is created, so every account counts as confirmed whether or not its creator owns the address. Anyone can sign up with a password under an email they do not own (for example a landlord's Gmail). When the real owner later uses "Continue with Google", automatic linking attaches their Google identity to the squatter's existing user, and the squatter's password still works: both are in the same landlord account, with its tenants, rent and documents. Nothing in the app can detect this after the fact.
+
+**Consequences.** The risk is live for as long as confirmation is off, so no real landlord or tenant data goes into the project in that state. Do not turn confirmation off on any project that holds real data without re-reading this decision. With confirmation back on, Supabase removes unconfirmed identities from a user when a verified identity links to it, which closes the vector. The sign-up form's "Check your email for a confirmation link" notice only shows while confirmation is on. Source: PR #25 and the product owner, 2026-10-26.
+
 ### D-21 · The assistant's category and urgency suggestions
 
 **Conflict.** T-01: "assistant assigns a suggested category and urgency in the background"; product.md §11: "suggests a category and an urgency"; journey stage 4: the app "Sorts the request". L07-SEL-CATEGORY "Pre-filled by the assistant, editable"; L-07 has no urgency field, only a chip. L-03 rule 1 ranks *urgent* requests first, so a downgrade changes the dashboard. T-03 shows a category. The firm rule is "the assistant drafts, the landlord decides".
