@@ -79,6 +79,19 @@ describe("checkBoundaries", () => {
     expect(violations[0].specifier).toBe("../landlord");
   });
 
+  it("flags tenant code importing src/server/composer, but allows landlord code (G-1, D-37)", () => {
+    const violations = violationsFor({
+      "src/app/(tenant)/u/[token]/page.tsx": 'import { recordCall } from "@/server/composer/record";\n',
+      "src/server/tenant/submit.ts": 'import "server-only";\nimport "../composer/assistant";\n',
+      "src/server/landlord/rent/mutations.ts": 'import { recordCall } from "@/server/composer/record";\n',
+    });
+    expect(violations.map((v) => v.file).sort()).toEqual([
+      "src/app/(tenant)/u/[token]/page.tsx",
+      "src/server/tenant/submit.ts",
+    ]);
+    expect(violations.every((v) => /src\/server\/composer/.test(v.rule))).toBe(true);
+  });
+
   it("ignores server components importing server code", () => {
     const violations = violationsFor({
       "src/app/(landlord)/page.tsx": 'import "@/server/landlord";\nimport "@/server/supabase/admin";\n',
