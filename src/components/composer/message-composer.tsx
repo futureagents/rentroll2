@@ -5,7 +5,7 @@
 // they answer "Did you send it?" → Yes (D-17). Opened with an id only; the server computes the
 // pre-selected tone from days overdue capped by confirmed contacts (D-41).
 import Link from "next/link";
-import { useContext, useEffect, useId, useReducer, useState } from "react";
+import { useContext, useEffect, useId, useReducer, useRef, useState } from "react";
 
 import { Button, ConfirmDialog, SegmentedChoice, StatusChip, TextArea } from "@/components/ui";
 import { Icon } from "@/components/ui/icons";
@@ -42,6 +42,20 @@ export function MessageComposer({ target, onClose }: MessageComposerProps) {
   return <ComposerSession key={target.rentEntryId} target={target} onClose={onClose} />;
 }
 
+/**
+ * Dev gallery only (src/app/dev/composer): the composer with fixture context instead of a load.
+ * Drafting and "Yes" still go through the real server functions.
+ */
+export function MessageComposerPreview({
+  context,
+  onClose,
+}: {
+  context: ComposerContext;
+  onClose: MessageComposerProps["onClose"];
+}) {
+  return <Composer context={context} onClose={onClose} />;
+}
+
 function ComposerSession({ target, onClose }: { target: ComposerTarget; onClose: MessageComposerProps["onClose"] }) {
   const [load, setLoad] = useState<LoadResult | null>(null);
   const [attempt, setAttempt] = useState(0);
@@ -63,7 +77,7 @@ function ComposerSession({ target, onClose }: { target: ComposerTarget; onClose:
   return (
     <Modal open labelledBy={titleId} onDismiss={close}>
       <div className="flex flex-col gap-4 p-6">
-        <h2 id={titleId} className="text-h1 text-ink">
+        <h2 id={titleId} tabIndex={-1} autoFocus className="text-h1 text-ink focus:outline-none">
           {load === null ? "Preparing the message" : "Message"}
         </h2>
         {load === null ? (
@@ -121,8 +135,11 @@ function Composer({ context, onClose }: { context: ComposerContext; onClose: Mes
     };
   }, [phase, tone, variant, draftRequest, context]);
 
+  const closed = useRef(false);
   useEffect(() => {
-    if (phase === "closed") onClose({ recorded: state.recorded });
+    if (phase !== "closed" || closed.current) return;
+    closed.current = true; // once, even if the opener passes a new onClose on re-render
+    onClose({ recorded: state.recorded });
   }, [phase, state.recorded, onClose]);
 
   useEffect(() => {
@@ -168,13 +185,11 @@ function Composer({ context, onClose }: { context: ComposerContext; onClose: Mes
     <Modal open labelledBy={titleId} onDismiss={() => dispatch({ type: "cancel" })}>
       <div className="flex h-full flex-col">
         {/* S01-HDR */}
-        <div className="flex items-start justify-between gap-4 border-b border-line px-6 py-4">
-          <h2 id={titleId} className="text-h1 text-ink">
+        {/* Focus lands on the title, so the dialog is announced before the field. */}
+        <div className="border-b border-line px-6 py-4">
+          <h2 id={titleId} tabIndex={-1} autoFocus className="text-h1 text-ink focus:outline-none">
             {header}
           </h2>
-          {phase !== "saving" && (
-            <Button variant="icon" icon="close" label="Cancel" onClick={() => dispatch({ type: "cancel" })} />
-          )}
         </div>
 
         {confirming ? (

@@ -34,7 +34,7 @@ export function Modal({ open, labelledBy, onDismiss, children }: ModalProps) {
       onClick={(event) => {
         if (event.target === ref.current) onDismiss();
       }}
-      className="m-0 h-full max-h-none w-full max-w-none bg-surface p-0 text-body backdrop:bg-ink/40 sm:m-auto sm:h-auto sm:max-h-[calc(100%-48px)] sm:w-[calc(100%-32px)] sm:max-w-[560px] sm:rounded-md sm:border sm:border-line sm:shadow-2"
+      className="m-auto max-h-[calc(100%-48px)] w-[calc(100%-32px)] max-w-[560px] rounded-md border border-line bg-surface p-0 text-body shadow-2 backdrop:bg-ink/40 max-sm:m-0 max-sm:h-full max-sm:max-h-none max-sm:w-full max-sm:max-w-none max-sm:rounded-none max-sm:border-0"
     >
       {children}
     </dialog>
