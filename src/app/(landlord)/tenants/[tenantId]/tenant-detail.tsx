@@ -327,11 +327,13 @@ function Payments({ view }: { view: TenantView }) {
 
   return (
     <section aria-labelledby="payments-heading" className={`${card} lg:col-span-2`}>
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      {/* The A2 tooltip centres on its trigger, so the figure sits clear of the screen edges:
+          beside the heading on wider screens, centred on a phone. */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-12">
         <h2 id="payments-heading" className="text-h2 text-ink">
           Rent payments
         </h2>
-        <div className="flex flex-col items-end gap-1">
+        <div className="flex flex-col items-center gap-1 sm:items-start">
           <Tooltip id={tooltipId} label={ON_TIME_DEFINITION} side="bottom">
             <button
               type="button"
