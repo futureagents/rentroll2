@@ -8,7 +8,8 @@ import { describe, expect, it } from "vitest";
 import { CARDS_PER_PAGE, DoorQrCards, doorLink } from "../src/app/print/door-qr/door-qr-cards";
 import { doorQrFixture, receiptFixture, receiptFixtureMinimal } from "../src/app/print/fixtures";
 import { Receipt } from "../src/app/print/receipt/receipt";
-import { buildUpiLink, receiptUpiNote, UPI_NOTE_MAX } from "../src/app/print/_lib/upi";
+import { receiptUpiNote } from "../src/app/print/_lib/upi";
+import { buildUpiLink, UPI_NOTE_MAX } from "../src/lib/upi";
 
 function decode(html: string): string {
   return html.replace(/&#x27;/g, "'").replace(/&amp;/g, "&").replace(/&quot;/g, '"');

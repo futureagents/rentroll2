@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { emailUrl, outgoingText, whatsappUrl } from "@/components/composer/handoff";
 import { rentReminderTemplate, TEMPLATE_VARIANTS } from "@/components/composer/templates";
-import { buildUpiPaymentLink } from "@/components/composer/upi";
+import { buildUpiLink } from "@/lib/upi";
 
 const fields = {
   recipient: { name: "Suresh Khan", firstName: "Suresh", phone: "+919876543210", email: null },
@@ -60,7 +60,7 @@ describe("rent reminder templates", () => {
 });
 
 describe("hand-off", () => {
-  const link = buildUpiPaymentLink({ upiId: "kulkarni@okhdfc", payeeName: "Kulkarni Rentals", amount: 186000, note: "Rent — Flat 4C" });
+  const link = buildUpiLink({ upiId: "kulkarni@okhdfc", payeeName: "Kulkarni Rentals", amount: 186000, note: "Rent — Flat 4C" });
 
   it("builds a UPI intent with the balance as a whole-rupee amount (D-19, D-27)", () => {
     expect(link).toBe("upi://pay?pa=kulkarni%40okhdfc&pn=Kulkarni%20Rentals&am=186000&tn=Rent%20%E2%80%94%20Flat%204C&cu=INR");

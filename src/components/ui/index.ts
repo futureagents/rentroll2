@@ -13,6 +13,7 @@ export { Dropdown, type DropdownOption, type DropdownProps } from "./dropdown";
 export { SegmentedChoice, type SegmentedChoiceProps, type SegmentedOption } from "./segmented-choice";
 export { TextArea, type TextAreaProps } from "./text-area";
 export { PhotoUploader, UPLOAD_ACCEPT, type PhotoUploaderProps, type UploaderPhoto } from "./photo-uploader";
+export { Checkbox, type CheckboxProps } from "./checkbox";
 
 export { StatCard, type StatCardProps } from "./stat-card";
 export { StatusChip, type ChipTone, type StatusChipProps } from "./status-chip";
@@ -22,6 +23,7 @@ export { Timeline, type TimelineEvent, type TimelineProps } from "./timeline";
 export { EmptyState, type EmptyStateProps } from "./empty-state";
 export { ToastProvider, ToastView, useToast, type ToastOptions, type ToastViewProps } from "./toast";
 export { ConfirmDialog, type ConfirmDialogProps } from "./confirm-dialog";
+export { Modal, type ModalProps } from "./modal";
 export { CopyButton, ShareButton, COPIED_MESSAGE, COPIED_MS, type CopyButtonProps, type ShareButtonProps } from "./share";
 
 export { formatRupees, formatRupeesShort, formatDate, formatDateTime, groupIndian, parseRupees } from "./format";

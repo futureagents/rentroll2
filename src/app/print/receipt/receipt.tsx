@@ -9,10 +9,11 @@
 // props and never queries: the tenant route hands it D-30 columns only. Every optional element
 // (logo, QR, PAN, reference) is omitted when absent, never shown as a placeholder (D-26).
 import { formatDate, formatMonth, formatRupees, formatRupeesInWords } from "@/lib/format";
+import { buildUpiLink } from "@/lib/upi";
 
 import { PrintPage, PrintSheet } from "../_lib/print-sheet";
 import { QrSvg } from "../_lib/qr-svg";
-import { buildUpiLink, receiptUpiNote } from "../_lib/upi";
+import { receiptUpiNote } from "../_lib/upi";
 
 export interface ReceiptLandlord {
   /** Name printed on receipts (L15-FLD-RECEIPTNAME); D-26 reads P-01's "landlord name" as this. */

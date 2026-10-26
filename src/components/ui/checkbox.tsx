@@ -1,6 +1,6 @@
 "use client";
-// PROMOTE: checkbox → A2 form fields (new row "Checkbox": label beside the box, helper below,
-// disabled state explains why). S01-CHK-PAYLINK is the first checkbox in the product.
+// A2 · Checkbox (Form fields): label beside the box, helper below; when disabled, the helper says
+// why (A2 disabled rule). Promoted from S-01's composer (S01-CHK-PAYLINK).
 import { useId, type ReactNode } from "react";
 
 export interface CheckboxProps {
