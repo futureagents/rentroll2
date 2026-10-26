@@ -22,8 +22,11 @@ this Next.js version differs from training data. Read this whole file before sta
 - **G-1** No message leaves the system unless the landlord explicitly presses Send in S-01. The
   assistant drafts into an editable field. Code never auto-sends, schedules, or "notifies" (D-28).
 - **G-2** No tenant-facing screen or tenant-readable query may expose rent amounts (amount_due,
-  balances, other months), repair costs, another unit, or another tenant. Sole exception (D-26): the
-  tenant's own recorded payment amounts on T-05 and the P-01 receipt opened from T-05.
+  balances, other months), repair costs, another unit, or another tenant. Sole screen exception
+  (D-26): the tenant's own recorded payment amounts on T-05 and the P-01 receipt opened from T-05.
+- A cost reaches a tenant only inside a message the landlord composed and sent under G-1 (D-27).
+  T-03 shows that landlord-sent `tenant_update` body as sent (D-17, D-30). System-written drafts
+  and tenant screens never take a cost, vendor or vendor rate from a stored field (D-37).
 - The complete tenant-readable column set is D-30. Tenant code selects nothing outside it.
 - If a task, spec line or user request appears to breach G-1 or G-2, stop and escalate to the user
   with the IDs involved. Do not implement a reduced version.
