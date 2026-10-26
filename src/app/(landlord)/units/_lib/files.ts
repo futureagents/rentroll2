@@ -63,7 +63,6 @@ export function isOwnStoragePath(landlordId: string, documentId: string, path: s
 /** A file name safe to store and show back: no path, no control characters, at most 120 chars. */
 export function cleanFileName(name: string): string {
   const base = name.split(/[\\/]/).pop() ?? "";
-  // eslint-disable-next-line no-control-regex
   const cleaned = base.replace(/[\u0000-\u001f\u007f]/g, "").trim();
   return (cleaned || "file").slice(0, 120);
 }
