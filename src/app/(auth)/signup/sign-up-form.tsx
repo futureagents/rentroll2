@@ -9,6 +9,7 @@ import { isPasswordLongEnough, PASSWORD_MIN_LENGTH, passwordStrength } from "@/l
 
 import { initialAuthState } from "../_components/auth-state";
 import { FormError, FormNotice } from "../_components/form-error";
+import { GoogleSignIn } from "../_components/google-sign-in";
 import { PasswordField } from "../_components/password-field";
 import { signUp } from "./actions";
 
@@ -33,46 +34,49 @@ export function SignUpForm() {
   const strength = password ? passwordStrength(password) : null;
 
   return (
-    <form action={action} noValidate className="flex flex-col gap-2">
-      <h1 className="mb-2 text-h1 text-ink">Create an account</h1>
+    <div>
+      <h1 className="mb-4 text-h1 text-ink">Create an account</h1>
       <FormError message={state.error} />
-      <TextField
-        label="Your name"
-        name="name"
-        autoComplete="name"
-        value={name}
-        onChange={setName}
-        required
-        helper="Shown on receipts unless you set a business name later."
-      />
-      <TextField
-        label="Email"
-        name="email"
-        type="email"
-        autoComplete="email"
-        value={email}
-        onChange={setEmail}
-        required
-      />
-      <PasswordField
-        label="Password"
-        name="password"
-        autoComplete="new-password"
-        value={password}
-        onChange={setPassword}
-        required
-        helper={strength ? `Strength: ${strength}` : `At least ${PASSWORD_MIN_LENGTH} characters.`}
-        validate={(v) => (isPasswordLongEnough(v) ? null : `Use at least ${PASSWORD_MIN_LENGTH} characters.`)}
-      />
-      <Button type="submit" variant="primary" block loading={pending} className="mt-2">
-        Create account
-      </Button>
-      <p className="mt-4 text-small">
-        Already have an account?{" "}
-        <Link href="/signin" className="text-primary hover:underline">
-          Sign in
-        </Link>
-      </p>
-    </form>
+      <GoogleSignIn />
+      <form action={action} noValidate className="flex flex-col gap-2">
+        <TextField
+          label="Your name"
+          name="name"
+          autoComplete="name"
+          value={name}
+          onChange={setName}
+          required
+          helper="Shown on receipts unless you set a business name later."
+        />
+        <TextField
+          label="Email"
+          name="email"
+          type="email"
+          autoComplete="email"
+          value={email}
+          onChange={setEmail}
+          required
+        />
+        <PasswordField
+          label="Password"
+          name="password"
+          autoComplete="new-password"
+          value={password}
+          onChange={setPassword}
+          required
+          helper={strength ? `Strength: ${strength}` : `At least ${PASSWORD_MIN_LENGTH} characters.`}
+          validate={(v) => (isPasswordLongEnough(v) ? null : `Use at least ${PASSWORD_MIN_LENGTH} characters.`)}
+        />
+        <Button type="submit" variant="primary" block loading={pending} className="mt-2">
+          Create account
+        </Button>
+        <p className="mt-4 text-small">
+          Already have an account?{" "}
+          <Link href="/signin" className="text-primary hover:underline">
+            Sign in
+          </Link>
+        </p>
+      </form>
+    </div>
   );
 }
