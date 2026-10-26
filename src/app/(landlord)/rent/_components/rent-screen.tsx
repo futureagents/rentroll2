@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState, useTransition } from "react";
 
+import { MessageComposer } from "@/components/composer";
 import { PageHeader } from "@/components/shell/page-header";
 import {
   Button,
@@ -128,8 +129,6 @@ function disabledWhen(
   return disabled ? { disabled: true, disabledReason: reason } : {};
 }
 
-/** S-01 is another lane; until it lands Remind says why it cannot open (A2 disabled-with-reason). */
-const COMPOSER_PENDING = "Reminders open the message composer, which is not available yet.";
 
 function RentBoard({ board, detail, today, currentMonth, missingRows, initialFilter, initialProperty }: RentScreenProps) {
   const router = useRouter();
@@ -142,6 +141,7 @@ function RentBoard({ board, detail, today, currentMonth, missingRows, initialFil
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [markPaidFor, setMarkPaidFor] = useState<string | null>(null);
   const [confirmBulk, setConfirmBulk] = useState(false);
+  const [remindFor, setRemindFor] = useState<string | null>(null);
   const [bulkPending, startBulk] = useTransition();
   const [rowsPending, startRows] = useTransition();
   const [navPending, startNav] = useTransition();
@@ -315,7 +315,7 @@ function RentBoard({ board, detail, today, currentMonth, missingRows, initialFil
         return (
           <RowActions>
             {actions.remind ? (
-              <Button variant="quiet" size={32} disabled disabledReason={COMPOSER_PENDING}>
+              <Button variant="quiet" size={32} onClick={() => setRemindFor(r.entry.id)}>
                 Remind
               </Button>
             ) : null}
@@ -482,6 +482,15 @@ function RentBoard({ board, detail, today, currentMonth, missingRows, initialFil
           />
         )}
       </section>
+
+      {/* L04-BTN-REMIND → S-01. No level is passed: the composer works it out on the server (D-41). */}
+      <MessageComposer
+        target={remindFor ? { kind: "rent_reminder", rentEntryId: remindFor } : null}
+        onClose={({ recorded }) => {
+          setRemindFor(null);
+          if (recorded) router.refresh();
+        }}
+      />
 
       <ConfirmDialog
         open={confirmBulk}

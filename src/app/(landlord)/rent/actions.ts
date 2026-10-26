@@ -74,10 +74,10 @@ export async function editAmountAction(input: { rentEntryId: string; next: numbe
   return done(await editAmountDue(db, landlordId, { ...input, today }));
 }
 
-/** L05-BTN-LOGCALL → a `message` of kind call (D-17). */
+/** L05-BTN-LOGCALL → a `message` of kind call, written by the composer's recordCall (D-17, D-41). */
 export async function logCallAction(input: { rentEntryId: string; outcome: string; note: string }) {
-  const { landlordId, db } = await session();
-  return done(await logCall(db, landlordId, input));
+  await session();
+  return done(await logCall(input));
 }
 
 /** L04-BNR-ROWSMISSING "create them now": the same idempotent path as the 1st-of-month job (D-24). */

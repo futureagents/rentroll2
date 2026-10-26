@@ -4,6 +4,13 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
+const { recordCall } = vi.hoisted(() => ({
+  recordCall: vi.fn<(input: { rentEntryId: string; outcome: string; note: string | null }) => Promise<{ ok: boolean }>>(
+    async () => ({ ok: true }),
+  ),
+}));
+vi.mock("@/server/composer/record", () => ({ recordCall }));
+
 import { editAmountDue, logCall, recordFullBalances, recordPayments, voidPayments } from "@/server/landlord/rent/mutations";
 
 import { fakeDb } from "./fake-db";
@@ -235,36 +242,41 @@ describe("editAmountDue writes an audit event with old and new value (D-25, D-14
   });
 });
 
-describe("logCall: a logged call is a message row with method call (L05-BTN-LOGCALL, D-17)", () => {
-  it("inserts kind call, channel call, no body, with outcome and note", async () => {
-    const db = fakeDb(seed());
-    const result = await logCall(db.client, LANDLORD, { rentEntryId: "e-4c", outcome: "promised_to_pay", note: "Will pay Friday" });
+describe("logCall: a logged call goes through the composer's recordCall (L05-BTN-LOGCALL, D-17, G-1)", () => {
+  it("hands rentEntryId, outcome and the trimmed note to recordCall and writes nothing itself", async () => {
+    recordCall.mockClear();
+    const result = await logCall({ rentEntryId: "e-4c", outcome: "promised_to_pay", note: "  Will pay Friday " });
     expect(result).toEqual({ ok: true });
-    expect(db.tables.message).toEqual([
-      expect.objectContaining({
-        landlord_id: LANDLORD,
-        kind: "call",
-        channel: "call",
-        rent_entry_id: "e-4c",
-        tenancy_id: "t-4c",
-        body: null,
-        level: null,
-        call_outcome: "promised_to_pay",
-        call_note: "Will pay Friday",
-      }),
-    ]);
+    expect(recordCall).toHaveBeenCalledTimes(1);
+    expect(recordCall).toHaveBeenCalledWith({ rentEntryId: "e-4c", outcome: "promised_to_pay", note: "Will pay Friday" });
   });
 
-  it("refuses an outcome outside the four options", async () => {
-    const db = fakeDb(seed());
-    const result = await logCall(db.client, LANDLORD, { rentEntryId: "e-4c", outcome: "angry", note: "" });
-    expect(result).toEqual({ ok: false, error: "Choose how the call went." });
-    expect(db.tables.message ?? []).toEqual([]);
+  it("passes an empty note as null", async () => {
+    recordCall.mockClear();
+    await logCall({ rentEntryId: "e-4c", outcome: "no_answer", note: "   " });
+    expect(recordCall).toHaveBeenCalledWith({ rentEntryId: "e-4c", outcome: "no_answer", note: null });
   });
 
-  it("stores an empty note as null", async () => {
-    const db = fakeDb(seed());
-    await logCall(db.client, LANDLORD, { rentEntryId: "e-4c", outcome: "no_answer", note: "   " });
-    expect(db.tables.message?.[0].call_note).toBeNull();
+  it("refuses an outcome outside the four options without calling recordCall", async () => {
+    recordCall.mockClear();
+    expect(await logCall({ rentEntryId: "e-4c", outcome: "angry", note: "" })).toEqual({ ok: false, error: "Choose how the call went." });
+    expect(recordCall).not.toHaveBeenCalled();
+  });
+
+  it("refuses a note over recordCall's 500-character cap with a message, not a silent failure", async () => {
+    recordCall.mockClear();
+    expect(await logCall({ rentEntryId: "e-4c", outcome: "other", note: "x".repeat(501) })).toEqual({
+      ok: false,
+      error: "Keep the note to 500 characters or fewer.",
+    });
+    expect(recordCall).not.toHaveBeenCalled();
+  });
+
+  it("reports E1-07 when recordCall fails", async () => {
+    recordCall.mockResolvedValueOnce({ ok: false });
+    expect(await logCall({ rentEntryId: "e-4c", outcome: "disputed", note: "" })).toEqual({
+      ok: false,
+      error: "Could not save. Your changes are still here — try again.",
+    });
   });
 });

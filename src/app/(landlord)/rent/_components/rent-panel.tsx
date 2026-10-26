@@ -2,6 +2,9 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 
+import { useRouter } from "next/navigation";
+
+import { MessageComposer } from "@/components/composer";
 import { SidePanel } from "@/components/shell/detail-panel-host";
 import {
   Button,
@@ -30,8 +33,7 @@ import { MarkPaidForm } from "./mark-paid-form";
 
 type Mode = "markPaid" | "logCall" | "edit" | null;
 
-/** S-01 and S-02 belong to other lanes; until they land these buttons say why they cannot open. */
-const COMPOSER_PENDING = "Reminders open the message composer, which is not available yet.";
+/** S-02 belongs to another lane; until it lands Payment link says why it cannot open. */
 const PAYSHEET_PENDING = "The payment sheet is not available yet.";
 
 /**
@@ -55,6 +57,8 @@ export function RentPanel({
   const [voiding, setVoiding] = useState<BoardPayment | null>(null);
   const [voidPending, startVoid] = useTransition();
   const [askLogCall, setAskLogCall] = useState(false);
+  const [composing, setComposing] = useState(false);
+  const router = useRouter();
   const awaitingCall = useRef(false);
   const toast = useToast();
 
@@ -110,7 +114,7 @@ export function RentPanel({
       footer={
         <>
           {actions.remind ? (
-            <Button disabled disabledReason={COMPOSER_PENDING}>
+            <Button onClick={() => setComposing(true)}>
               Send reminder
             </Button>
           ) : null}
@@ -235,14 +239,8 @@ export function RentPanel({
                     <Icon name="call" />
                   </a>
                 </Tooltip>
-                {/* The message icon opens S-01 (user decision on the L-05 message-icon OPEN). */}
-                <Button
-                  variant="icon"
-                  icon="note"
-                  label={`Message ${source.tenantName}`}
-                  disabled
-                  disabledReason={COMPOSER_PENDING}
-                />
+                {/* The message icon opens S-01 (product owner's decision on the L-05 message-icon OPEN). */}
+                <Button variant="icon" icon="note" label={`Message ${source.tenantName}`} onClick={() => setComposing(true)} />
                 <CopyButton text={source.tenantPhone} label="Copy phone number" />
               </div>
             ) : null}
@@ -264,6 +262,15 @@ export function RentPanel({
           )}
         </section>
       </div>
+
+      {/* L05-BTN-REMIND and the message icon → S-01. No level is passed (D-41). */}
+      <MessageComposer
+        target={composing ? { kind: "rent_reminder", rentEntryId: source.id } : null}
+        onClose={({ recorded }) => {
+          setComposing(false);
+          if (recorded) router.refresh();
+        }}
+      />
 
       <ConfirmDialog
         open={voiding !== null}
@@ -364,15 +371,24 @@ function LogCallForm({ rentEntryId, onDone }: { rentEntryId: string; onDone: () 
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  // A logged call raises S-01's tone pre-selection (D-41), so one submission must write one call.
+  // The ref closes the gap before `pending` re-renders (a double click, or Enter then click).
+  const inFlight = useRef(false);
   const toast = useToast();
 
   const submit = () => {
+    if (inFlight.current) return;
     if (!outcome) return setError("Choose how the call went.");
+    inFlight.current = true;
     startTransition(async () => {
-      const result = await logCallAction({ rentEntryId, outcome, note });
-      if (!result.ok) return setError(result.error);
-      toast.show({ message: "Reminder recorded on the tenant's history." }); // E1-02
-      onDone();
+      try {
+        const result = await logCallAction({ rentEntryId, outcome, note });
+        if (!result.ok) return setError(result.error);
+        toast.show({ message: "Reminder recorded on the tenant's history." }); // E1-02
+        onDone();
+      } finally {
+        inFlight.current = false;
+      }
     });
   };
 
@@ -401,9 +417,13 @@ function LogCallForm({ rentEntryId, onDone }: { rentEntryId: string; onDone: () 
         <Button variant="quiet" type="button" onClick={onDone}>
           Cancel
         </Button>
-        <Button type="submit" loading={pending}>
-          Save call
-        </Button>
+        {pending ? (
+          <Button type="submit" disabled disabledReason="Saving the call." loading>
+            Save call
+          </Button>
+        ) : (
+          <Button type="submit">Save call</Button>
+        )}
       </div>
     </form>
   );

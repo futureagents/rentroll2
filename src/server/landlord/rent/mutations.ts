@@ -6,9 +6,12 @@ import type { IsoDate } from "@/app/(landlord)/rent/_lib/calendar";
 import { planBulkPayments, validateAmountEdit, validatePayment } from "@/app/(landlord)/rent/_lib/payments";
 import { deriveRentState, type PaymentForStatus } from "@/app/(landlord)/rent/_lib/status";
 import { isCallOutcome } from "@/app/(landlord)/rent/_lib/timeline";
+import { recordCall } from "@/server/composer/record";
 
 // Rent writes for L-04 and L-05 (D-10, D-11, D-14, D-17, D-25). Every function takes the
 // landlord's own RLS-scoped client, so another landlord's rows are simply absent (E4-5).
+//
+// Call logging is the exception: it goes through the composer's recordCall (see logCall).
 //
 // Supabase's REST API has no multi-statement transaction. Where a timeline must not lie by
 // omission (amount edits, D-14 ★6) the write is guarded and undone if its audit row fails; the
@@ -239,36 +242,19 @@ export async function editAmountDue(
   return { ok: true };
 }
 
-/**
- * L05-BTN-LOGCALL: "Saves to the timeline as a reminder record with method call" — a `message`
- * row of kind `call` (D-17), shown in the reminder history. How calls weigh on S-01's tone
- * pre-selection is the composer's rule (D-38; D-41 proposed in PR #11).
- */
-export async function logCall(
-  db: SupabaseClient,
-  landlordId: string,
-  input: { rentEntryId: string; outcome: string; note: string },
-): Promise<Result> {
-  if (!isCallOutcome(input.outcome)) return { ok: false, error: "Choose how the call went." };
-  const { data: entry, error } = await db
-    .from("rent_entry")
-    .select("id, tenancy_id")
-    .eq("id", input.rentEntryId)
-    .maybeSingle();
-  if (error) return { ok: false, error: SAVE_FAILED };
-  if (!entry) return { ok: false, error: NOT_FOUND };
+/** recordCall's own cap on the note (src/server/composer/record.ts). */
+const MAX_CALL_NOTE = 500;
 
-  const { error: insertError } = await db.from("message").insert({
-    landlord_id: landlordId,
-    kind: "call",
-    channel: "call",
-    rent_entry_id: entry.id,
-    tenancy_id: entry.tenancy_id,
-    body: null,
-    level: null,
-    call_outcome: input.outcome,
-    call_note: input.note.trim() || null,
-  });
-  if (insertError) return { ok: false, error: SAVE_FAILED };
-  return { ok: true };
+/**
+ * L05-BTN-LOGCALL: "Saves to the timeline as a reminder record with method call". The composer
+ * owns the only writer of `message` (G-1, D-17), so the call goes through its recordCall. A
+ * logged call counts as a contact for S-01's tone pre-selection (D-41), so the form saves it
+ * once per submission.
+ */
+export async function logCall(input: { rentEntryId: string; outcome: string; note: string }): Promise<Result> {
+  if (!isCallOutcome(input.outcome)) return { ok: false, error: "Choose how the call went." };
+  const note = input.note.trim();
+  if (note.length > MAX_CALL_NOTE) return { ok: false, error: `Keep the note to ${MAX_CALL_NOTE} characters or fewer.` };
+  const result = await recordCall({ rentEntryId: input.rentEntryId, outcome: input.outcome, note: note || null });
+  return result.ok ? { ok: true } : { ok: false, error: SAVE_FAILED };
 }
