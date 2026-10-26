@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { compareUnits } from "@/lib/display/unit-label";
-import { appBaseUrl } from "@/server/auth/base-url";
 import { requireLandlord } from "@/server/auth/session";
+import { NO_BASE_URL, tokenLinkBase } from "@/server/landlord/units/links";
 import { doorCardUnits } from "@/server/landlord/units/queries";
 import { createSupabaseServerClient } from "@/server/supabase/server";
 
@@ -25,6 +25,11 @@ export default async function DoorQrPage({
   const ids = raw ? raw.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 500) : null;
   await requireLandlord(raw ? `/print/door-qr?units=${encodeURIComponent(raw)}` : "/print/door-qr");
 
+  // A sticker printed against a preview or temporary domain would break, and hand its token to
+  // whoever holds that domain later: print only from the configured address.
+  const baseUrl = await tokenLinkBase();
+  if (!baseUrl) return <p className="p-8 text-body">{NO_BASE_URL}</p>;
+
   const db = await createSupabaseServerClient();
   const { units, landlordPhone } = await doorCardUnits(db, ids);
   if (units.length === 0) notFound();
@@ -34,7 +39,7 @@ export default async function DoorQrPage({
 
   return (
     <DoorQrCards
-      baseUrl={await appBaseUrl()}
+      baseUrl={baseUrl}
       landlordPhone={landlordPhone}
       units={sorted.map((u) => ({ unitNumber: u.unitNumber, propertyName: u.propertyName, doorToken: u.doorToken }))}
     />

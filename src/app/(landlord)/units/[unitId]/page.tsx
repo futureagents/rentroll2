@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { unitLabel } from "@/lib/display/unit-label";
-import { appBaseUrl } from "@/server/auth/base-url";
 import { requireLandlord } from "@/server/auth/session";
 import { readUrls } from "@/server/landlord/units/files";
+import { NO_BASE_URL, tokenLinkBase } from "@/server/landlord/units/links";
 import { getUnitDetail } from "@/server/landlord/units/queries";
 import { createSupabaseAdminClient } from "@/server/supabase/admin";
 import { createSupabaseServerClient } from "@/server/supabase/server";
@@ -38,7 +38,7 @@ export default async function UnitPage({ params }: { params: Promise<{ unitId: s
   if (!data) notFound();
 
   const today = kolkataToday(new Date());
-  const base = await appBaseUrl();
+  const base = await tokenLinkBase();
   const admin = createSupabaseAdminClient();
   const photos = data.documents.filter((d) => PHOTO_TYPES.has(d.type));
   const files = data.documents.filter((d) => !PHOTO_TYPES.has(d.type));
@@ -81,11 +81,12 @@ export default async function UnitPage({ params }: { params: Promise<{ unitId: s
           agreementEndsOn: latestTerm?.endsOn ?? null,
           depositPaid: active.deposit_paid,
           noticeVacateOn: active.notice_vacate_on,
-          tenantLink: `${base}/u/${active.tenant_token}`,
+          tenantLink: base ? `${base}/u/${active.tenant_token}` : null,
           moveInPhotoCount: data.documents.filter((d) => d.type === "move_in_photo" && d.tenancy_id === active.id).length,
         }
       : null,
-    doorLink: `${base}/u/${data.unit.door_token}`,
+    doorLink: base ? `${base}/u/${data.unit.door_token}` : null,
+    linkProblem: base ? null : NO_BASE_URL,
     figures: lifetimeFigures(
       data.payments.map((p) => ({ amount: p.amount, status: p.status, receivedOn: p.received_on })),
       data.requests.map((r) => ({ status: r.status, cost: r.cost, doneAt: r.done_at })),

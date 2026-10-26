@@ -56,8 +56,14 @@ export function QrModal({ view, open, onClose }: { view: UnitView; open: boolean
         }
       >
         <div className="flex flex-col items-center gap-2 rounded-md border border-line p-4">
-          <QrSvg value={view.doorLink} sizeMm={48} label={`QR code: report a problem in ${view.label}`} />
-          <p className="text-h2 text-ink">Scan to report a problem</p>
+          {view.doorLink ? (
+            <>
+              <QrSvg value={view.doorLink} sizeMm={48} label={`QR code: report a problem in ${view.label}`} />
+              <p className="text-h2 text-ink">Scan to report a problem</p>
+            </>
+          ) : (
+            <p className="text-body">{view.linkProblem}</p>
+          )}
         </div>
         <p className="text-small text-muted">
           This code is for reporting problems only and stays the same between tenants. Share the tenant link for everything else.

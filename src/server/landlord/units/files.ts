@@ -66,8 +66,13 @@ export interface VerifiedFile {
  * Checks each finished upload against what storage actually holds — the landlord's own path, a
  * permitted type and size by the stored metadata, not by what the browser claimed — and returns
  * the document row values. Any file that fails makes the whole set fail.
+ *
+ * Only a fresh upload qualifies: an id that already has a `document` row (read through the
+ * landlord's RLS client `db`) is refused, so an existing file — a settled statement included
+ * (D-15) — can never be re-attached under a second row. This check never deletes anything.
  */
 export async function verifyUploads(
+  db: SupabaseClient,
   admin: SupabaseClient,
   landlordId: string,
   files: FinishedFile[],
@@ -77,6 +82,19 @@ export async function verifyUploads(
   for (const file of files) {
     if (!isUuid(file.documentId) || seen.has(file.documentId)) return { ok: false, error: UPLOAD_MISSING };
     seen.add(file.documentId);
+  }
+  if (files.length === 0) return { ok: true, files: [] };
+
+  const ids = files.map((f) => f.documentId);
+  const paths = ids.map((id) => storagePathFor(landlordId, id));
+  const [{ data: byId, error: idError }, { data: byPath, error: pathError }] = await Promise.all([
+    db.from("document").select("id").in("id", ids),
+    db.from("document").select("id").in("storage_path", paths),
+  ]);
+  if (idError || pathError) return { ok: false, error: UPLOAD_MISSING };
+  if ((byId ?? []).length > 0 || (byPath ?? []).length > 0) return { ok: false, error: UPLOAD_MISSING };
+
+  for (const file of files) {
     const path = storagePathFor(landlordId, file.documentId);
     if (!isOwnStoragePath(landlordId, file.documentId, path)) return { ok: false, error: UPLOAD_MISSING };
     const { data, error } = await admin.storage.from(BUCKET).info(path);
@@ -84,7 +102,6 @@ export async function verifyUploads(
     const mime = String(data.contentType ?? "");
     const size = Number(data.size ?? 0);
     if (!allowedMime(file.type).includes(mime) || size <= 0 || size > MAX_UPLOAD_BYTES) {
-      await admin.storage.from(BUCKET).remove([path]);
       return { ok: false, error: "One of the files is not a supported photo or document." };
     }
     verified.push({
@@ -102,7 +119,11 @@ export async function verifyUploads(
 
 const UPLOAD_MISSING = "A photo or document did not finish uploading. Remove it and add it again.";
 
-/** Removes stored objects after a failed save, so a rolled-back form leaves nothing behind. */
+/**
+ * Removes the stored files of document rows the caller has just deleted through RLS (unit delete).
+ * A save that rolls back keeps its uploads so the landlord can retry; files left by an abandoned
+ * form are for a cleanup job (Integration requirements).
+ */
 export async function removeObjects(admin: SupabaseClient, paths: string[]): Promise<void> {
   if (paths.length > 0) await admin.storage.from(BUCKET).remove(paths);
 }

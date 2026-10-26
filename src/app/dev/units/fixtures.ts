@@ -45,6 +45,7 @@ export const unitView: UnitView = {
     moveInPhotoCount: 0,
   },
   doorLink: "http://localhost:3000/u/9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b",
+  linkProblem: null,
   figures: {
     lifetime: { collected: 512000, spend: 34000, net: 478000 },
     lastTwelveMonths: { collected: 210000, spend: 12500, net: 197500 },

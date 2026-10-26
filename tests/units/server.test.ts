@@ -77,7 +77,7 @@ describe("addTenancy (L09-FRM-ADDTENANT, D-39)", () => {
       expect.objectContaining({ tenancy_id: tenancy?.id, unit_id: UNIT, month: "2026-11-01", amount_due: 9000, due_on: "2026-11-16", is_pro_rata: true }),
     ]);
     expect(fake.tables.document).toEqual([
-      expect.objectContaining({ id: PHOTO, type: "move_in_photo", tenancy_id: tenancy?.id, unit_id: UNIT, storage_path: `${ME}/${PHOTO}`, mime: "image/jpeg", uploaded_by: "landlord" }),
+      expect.objectContaining({ id: PHOTO, landlord_id: ME, type: "move_in_photo", tenancy_id: tenancy?.id, unit_id: UNIT, storage_path: `${ME}/${PHOTO}`, mime: "image/jpeg", uploaded_by: "landlord" }),
     ]);
   });
 
@@ -121,22 +121,39 @@ describe("uploads are checked against what storage holds (D-15, E4-7)", () => {
   it("refuses a document id that was never uploaded to this landlord's folder", async () => {
     const fake = fakeSupabase(ME, seed());
     fake.objects.set(`${OTHER}/${PHOTO}`, { contentType: "image/jpeg", size: 1000 }); // another landlord's file
-    const result = await verifyUploads(fake.admin, ME, [{ documentId: PHOTO, type: "move_in_photo", fileName: "x.jpg", alt: null }]);
+    const result = await verifyUploads(fake.db, fake.admin, ME, [{ documentId: PHOTO, type: "move_in_photo", fileName: "x.jpg", alt: null }]);
     expect(result.ok).toBe(false);
   });
 
-  it("refuses and removes a stored file whose real type is not allowed", async () => {
+  it("refuses a stored file whose real type is not allowed, and deletes nothing", async () => {
     const fake = fakeSupabase(ME, seed());
     fake.objects.set(`${ME}/${PHOTO}`, { contentType: "text/html", size: 1000 });
     const result = await addTenancy(fake.db, fake.admin, ME, UNIT, form({ photos: [{ documentId: PHOTO, type: "move_in_photo", fileName: "x.jpg", alt: null }] }));
     expect(result.ok).toBe(false);
-    expect(fake.removed).toEqual([`${ME}/${PHOTO}`]);
+    expect(fake.removed).toEqual([]);
     expect(fake.tables.tenancy).toHaveLength(1);
+  });
+
+  it("never re-attaches or deletes an existing file, a settled statement included (D-15)", async () => {
+    const STATEMENT = "77777777-7777-4777-8777-777777777777";
+    const fake = fakeSupabase(ME, {
+      ...seed(),
+      tenancy: [...seed().tenancy, { id: TENANCY, landlord_id: ME, unit_id: UNIT, status: "active", moved_in_on: "2025-01-01" }],
+      document: [{ id: STATEMENT, landlord_id: ME, unit_id: UNIT, type: "statement", storage_path: `${ME}/${STATEMENT}`, is_protected: true }],
+    });
+    fake.objects.set(`${ME}/${STATEMENT}`, { contentType: "application/pdf", size: 50_000 });
+    for (const type of ["move_in_photo", "agreement"] as const) {
+      const result = await attachDocuments(fake.db, fake.admin, ME, { tenancyId: TENANCY, type, files: [{ documentId: STATEMENT, fileName: "s.pdf", alt: null }] });
+      expect(result.ok).toBe(false);
+    }
+    expect(fake.removed).toEqual([]);
+    expect(fake.objects.has(`${ME}/${STATEMENT}`)).toBe(true);
+    expect(fake.tables.document).toHaveLength(1);
   });
 
   it("refuses a path-like document id", async () => {
     const fake = fakeSupabase(ME, seed());
-    const result = await verifyUploads(fake.admin, ME, [{ documentId: `../${OTHER}/${PHOTO}`, type: "agreement", fileName: "a.pdf", alt: null }]);
+    const result = await verifyUploads(fake.db, fake.admin, ME, [{ documentId: `../${OTHER}/${PHOTO}`, type: "agreement", fileName: "a.pdf", alt: null }]);
     expect(result.ok).toBe(false);
   });
 
@@ -156,21 +173,21 @@ describe("createUnit (L08-BTN-ADDUNIT, D-39)", () => {
 
   it("adds a unit to an existing property; the door token comes from the database", async () => {
     const fake = fakeSupabase(ME, seed());
-    const result = await createUnit(fake.db, input);
+    const result = await createUnit(fake.db, ME, input);
     expect(result.ok).toBe(true);
     expect(fake.tables.unit.find((u) => u.unit_number === "5A")).toMatchObject({ property_id: "p-k", rent: 18000, deposit_amount: 0, type: "2BHK" });
   });
 
   it("refuses a number the property already has", async () => {
     const fake = fakeSupabase(ME, seed());
-    const result = await createUnit(fake.db, { ...input, unitNumber: "4c" });
+    const result = await createUnit(fake.db, ME, { ...input, unitNumber: "4c" });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.fieldErrors?.unitNumber).toBe("Kulkarni Apartments already has a unit 4c.");
   });
 
   it("refuses another landlord's property id", async () => {
     const fake = fakeSupabase(ME, seed());
-    const result = await createUnit(fake.db, { ...input, propertyId: "p-x" });
+    const result = await createUnit(fake.db, ME, { ...input, propertyId: "p-x" });
     expect(result.ok).toBe(false);
     expect(fake.tables.unit).toHaveLength(2);
   });
@@ -178,13 +195,14 @@ describe("createUnit (L08-BTN-ADDUNIT, D-39)", () => {
   it("creates the property first for “Add a property…”, and removes it if the unit fails", async () => {
     const fake = fakeSupabase(ME, seed());
     fake.failNext("unit");
-    const failed = await createUnit(fake.db, { ...input, propertyId: null, propertyName: "Shanti Niwas", propertyAddress: "Karve Road" });
+    const failed = await createUnit(fake.db, ME, { ...input, propertyId: null, propertyName: "Shanti Niwas", propertyAddress: "Karve Road" });
     expect(failed.ok).toBe(false);
     expect(fake.tables.property.map((p) => p.name)).toEqual(["Kulkarni Apartments", "Elsewhere"]);
 
-    const ok = await createUnit(fake.db, { ...input, propertyId: null, propertyName: "Shanti Niwas", propertyAddress: "Karve Road" });
+    const ok = await createUnit(fake.db, ME, { ...input, propertyId: null, propertyName: "Shanti Niwas", propertyAddress: "Karve Road" });
     expect(ok.ok).toBe(true);
     const property = fake.tables.property.find((p) => p.name === "Shanti Niwas");
+    expect(property?.landlord_id).toBe(ME);
     expect(fake.tables.unit.find((u) => u.unit_number === "5A")?.property_id).toBe(property?.id);
   });
 });

@@ -31,8 +31,8 @@ async function session(path: string) {
 
 /** L08-BTN-ADDUNIT. */
 export async function createUnitAction(input: NewUnitInput): Promise<Result<{ unitId: string }, UnitField>> {
-  const { db } = await session("/units");
-  const result = await createUnit(db, input);
+  const { landlord, db } = await session("/units");
+  const result = await createUnit(db, landlord.landlordId, input);
   if (result.ok) revalidatePath("/units");
   return result;
 }

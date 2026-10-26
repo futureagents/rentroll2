@@ -33,12 +33,14 @@ export interface UnitView {
     agreementEndsOn: string | null;
     depositPaid: number;
     noticeVacateOn: string | null;
-    /** `/u/<tenant_token>` (D-01). Copied and shared from L-09 only. */
-    tenantLink: string;
+    /** `/u/<tenant_token>` (D-01). Copied and shared from L-09 only. Null without a configured base URL. */
+    tenantLink: string | null;
     moveInPhotoCount: number;
   } | null;
-  /** `/u/<door_token>`: report-only (D-02), shown as the QR. */
-  doorLink: string;
+  /** `/u/<door_token>`: report-only (D-02), shown as the QR. Null without a configured base URL. */
+  doorLink: string | null;
+  /** Why the token links are missing, when they are. */
+  linkProblem: string | null;
   figures: { lifetime: Figures; lastTwelveMonths: Figures };
   /** The first move-in date ever, for "since …". */
   historySince: string | null;

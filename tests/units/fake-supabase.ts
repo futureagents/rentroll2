@@ -1,12 +1,23 @@
 // In-memory stand-in for the Supabase client, enough for src/server/landlord/units. It behaves
 // like the landlord's RLS-scoped client: every read, update and delete sees only rows whose
-// landlord_id is the signed-in landlord's, and inserts are stamped with it (schema §9, D-04).
+// landlord_id is the signed-in landlord's (schema §9, D-04). Inserts get landlord_id the way the
+// schema does it — copied from the parent row by the t10 derive trigger on unit, tenancy,
+// agreement and rent_entry, and nowhere else — and then face the RLS write check: a missing
+// landlord_id is a not-null violation, a foreign one is refused.
 // Deleting a tenancy or a property cascades as the schema's foreign keys do. Storage is a map of
 // path → { contentType, size }.
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 type Row = Record<string, unknown>;
 type Filter = (row: Row) => boolean;
+
+/** Tables whose landlord_id the schema derives from a parent (t10_derive_landlord). */
+const DERIVE: Record<string, { parent: string; column: string }> = {
+  unit: { parent: "property", column: "property_id" },
+  tenancy: { parent: "unit", column: "unit_id" },
+  agreement: { parent: "tenancy", column: "tenancy_id" },
+  rent_entry: { parent: "tenancy", column: "tenancy_id" },
+};
 
 const CASCADE: Record<string, { table: string; column: string }[]> = {
   property: [{ table: "unit", column: "property_id" }],
@@ -68,7 +79,14 @@ export function fakeSupabase(landlordId: string, seed: Record<string, Row[]> = {
       } else if (action === "insert" || action === "upsert") {
         const rows = (Array.isArray(payload) ? payload : [payload]) as Row[];
         for (const input of rows) {
-          const row: Row = { id: input.id ?? `${name}-${++ids}`, landlord_id: landlordId, ...input };
+          const row: Row = { id: input.id ?? `${name}-${++ids}`, ...input };
+          const derive = DERIVE[name];
+          if (row.landlord_id == null && derive) {
+            // The trigger reads the parent as the caller, so a foreign parent yields nothing.
+            row.landlord_id = table(derive.parent).find((p) => p.id === row[derive.column] && visible(p))?.landlord_id ?? null;
+          }
+          if (row.landlord_id == null) return { data: null, error: { message: `null value in column "landlord_id" of "${name}"`, code: "23502" }, count: null };
+          if (row.landlord_id !== landlordId) return { data: null, error: { message: "new row violates row-level security policy", code: "42501" }, count: null };
           if (name === "tenancy") row.tenant_token ??= `token-${ids}`;
           if (name === "unit") row.door_token ??= `door-${ids}`;
           if (name === "tenancy") row.status ??= "active";

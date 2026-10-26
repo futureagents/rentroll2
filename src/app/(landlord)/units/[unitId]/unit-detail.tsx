@@ -199,7 +199,9 @@ function Overview({ view, onShowQr, onShowPhotos }: { view: UnitView; onShowQr: 
           <h2 id="link-heading" className="text-h2 text-ink">
             Tenant link
           </h2>
-          {view.current ? (
+          {view.current && !view.current.tenantLink ? (
+            <p className="text-body">{view.linkProblem}</p>
+          ) : view.current?.tenantLink ? (
             <>
               <div className="flex items-center gap-2">
                 <code className="min-w-0 flex-1 truncate rounded-sm bg-canvas px-2 py-1 text-small text-body" title={view.current.tenantLink}>
