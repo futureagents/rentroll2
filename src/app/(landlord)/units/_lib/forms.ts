@@ -6,7 +6,7 @@
 // - L09-BTN-EDITUNIT † (D-39): number, type, rent, deposit.
 // - L09-FRM-ADDTENANT † (D-39): name, phone, email (optional), move-in date, agreement start and
 //   end, rent, rent due day, deposit paid, deposit received on. Rent, due day and deposit are required.
-import { isIsoDate, type IsoDate } from "./dates";
+import { addDays, isIsoDate, type IsoDate } from "./dates";
 
 export type FieldErrors<K extends string> = Partial<Record<K, string>>;
 
@@ -198,3 +198,8 @@ export function storedPhone(digits: string): string {
  * decision in the lane PR). Shown on the step itself and wherever a tenancy has no photos.
  */
 export const NO_PHOTOS_CONSEQUENCE = "Without this, a deduction at move-out has no evidence behind it.";
+
+/** L11-BTN-RECORDNOTICE † defaults (D-13): given today, vacating today + 30 days — a form default, not a stored rule. */
+export function noticeDefaults(today: IsoDate): { givenOn: IsoDate; vacateOn: IsoDate } {
+  return { givenOn: today, vacateOn: addDays(today, 30) };
+}
