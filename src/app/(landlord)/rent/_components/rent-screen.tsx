@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 
 import { PageHeader } from "@/components/shell/page-header";
 import {
@@ -40,6 +40,7 @@ import type { BoardEntry, RentBoardData, RentEntryDetail } from "../_lib/types";
 import { MarkPaidForm } from "./mark-paid-form";
 import { usePaymentToast } from "./payment-toast";
 import { RentPanel } from "./rent-panel";
+import { RowPopover } from "./row-popover";
 
 export interface RentScreenProps {
   board: RentBoardData;
@@ -73,6 +74,51 @@ const FILTER_OPTIONS = [
 ] as const;
 
 const ALL_PROPERTIES = "all";
+
+/** L04-BTN-MARKPAID and its inline form (L04-FRM-MARKPAID †). */
+function MarkPaidCell({
+  row,
+  today,
+  open,
+  onToggle,
+}: {
+  row: Row;
+  today: IsoDate;
+  open: boolean;
+  onToggle: (open: boolean) => void;
+}) {
+  const anchor = useRef<HTMLButtonElement>(null);
+  // The data table renders every row twice (table, and the stacked card under 640px) and hides
+  // one with CSS. Only the copy whose button was pressed opens, so the form never mounts twice.
+  const [pressedHere, setPressedHere] = useState(false);
+  return (
+    <>
+      <Button
+        ref={anchor}
+        variant="quiet"
+        size={32}
+        aria-expanded={open && pressedHere}
+        onClick={() => {
+          setPressedHere(true);
+          onToggle(!(open && pressedHere));
+        }}
+      >
+        Mark paid
+      </Button>
+      {open && pressedHere ? (
+        <RowPopover anchor={anchor} label={`Mark ${unitLabel(row.entry.unitNumber)} paid`} onClose={() => onToggle(false)}>
+          <MarkPaidForm
+            rentEntryId={row.entry.id}
+            state={row.state}
+            today={today}
+            onDone={() => onToggle(false)}
+            onCancel={() => onToggle(false)}
+          />
+        </RowPopover>
+      ) : null}
+    </>
+  );
+}
 
 /** A2: a disabled button always carries the reason, shown as its tooltip. */
 function disabledWhen(
@@ -274,30 +320,12 @@ function RentBoard({ board, detail, today, currentMonth, missingRows, initialFil
               </Button>
             ) : null}
             {actions.markPaid ? (
-              <div className="relative">
-                <Button
-                  variant="quiet"
-                  size={32}
-                  aria-expanded={markPaidFor === r.entry.id}
-                  onClick={() => setMarkPaidFor(markPaidFor === r.entry.id ? null : r.entry.id)}
-                >
-                  Mark paid
-                </Button>
-                {markPaidFor === r.entry.id ? (
-                  <div
-                    className="absolute right-0 top-full z-20 mt-1 w-80 whitespace-normal rounded-md border border-line bg-surface p-4 text-left shadow-2"
-                    onKeyDown={(event) => event.key === "Escape" && setMarkPaidFor(null)}
-                  >
-                    <MarkPaidForm
-                      rentEntryId={r.entry.id}
-                      state={r.state}
-                      today={today}
-                      onDone={() => setMarkPaidFor(null)}
-                      onCancel={() => setMarkPaidFor(null)}
-                    />
-                  </div>
-                ) : null}
-              </div>
+              <MarkPaidCell
+                row={r}
+                today={today}
+                open={markPaidFor === r.entry.id}
+                onToggle={(open) => setMarkPaidFor(open ? r.entry.id : null)}
+              />
             ) : null}
             {actions.receipt && latest ? (
               <Button
