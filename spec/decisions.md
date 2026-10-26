@@ -465,6 +465,31 @@ Status mapping New → Received; the rest identical. A reopened request shows "R
 
 **Consequences.** Resolves: S-01 level-example OPEN, S-01 days-1–2 OPEN, S-01 sequence OPEN, S-01 calls OPEN, S-01 tone-for-non-rent OPEN, S-01 clause OPEN, S-01 paylink OPEN, L-04 pre-day-3 OPEN, L-05 calls OPEN, product.md §11 warm/gentle OPEN, product.md §7 wireframe-B OPEN. S01-HDR and L05-HDR show "Flat 4C · Kulkarni Apartments" when the landlord has more than one property (resolves both header OPENs).
 
+**Superseded in part by D-41:** the pre-selection now also depends on confirmed sends, and logged calls count toward it. The rest of D-38 stands.
+
+### D-41 · Tone pre-selection is capped by confirmed contacts; the stale-board warning
+
+**Conflict.** D-38 pre-selects S01-SEG-TONE from days overdue alone: "It does not depend on how many reminders were sent" and logged calls "do not affect the pre-selection". product.md §10 describes the levels as a sequence (gentle nudge, then direct reminder, then formal notice). S-01 itself says recording a reminder that was never sent "would corrupt the escalation history and produce a wrong tone next time". Read by days alone, a landlord who opens S-01 three times on day 20 without sending is offered Formal wording against a tenant who has received nothing, which is the failure the escalation history exists to prevent. Separately, S-01 drafts a rent reminder from the payments recorded on L-04. If the landlord has not recorded what came in since the due date, the composer drafts a reminder to a tenant who may already have paid, and nothing on S-01 says so.
+
+**Why not both.** The pre-selection is one value, and "by days overdue alone" and "in sequence" give different values whenever confirmed contacts lag behind the calendar.
+
+**Decision.**
+
+1. **Pre-selected level** = `min(level_by_days, contacts + 1)`.
+   - `level_by_days` is D-38's ladder: below day₂ (including before the due date) → 1 Gentle; ≥ day₂ → 2 Direct; ≥ day₃ → 3 Formal. day₁…day₃ are read from `landlord.ladder_days` (L15-TBL-LADDER) on every open. Code never hardcodes 3 / 10 / 20, which are only the column default (D-20).
+   - `contacts` = the number of `message` rows for the rent entry with kind `rent_reminder` or `call`. Rows exist only after "Did you send it?" → Yes, or after L05-FRM-LOGCALL is saved (D-17). Opening the composer, drafting, "Write it differently", Copy, Open in WhatsApp, Email instead, "Not yet" and Cancel never add one.
+   - So a first contact on day 20 is Gentle, a second is at most Direct, and Formal needs two earlier contacts as well as day₃.
+   - The landlord may still pick any tone. `message.level` stores the tone actually sent, not the pre-selection.
+   - S-01 computes the level on the server from the rent entry id. Openers (L-03, L-04, L-05, S-02) pass only that id, never a level, so no screen can pre-select differently.
+2. **S01-CHP-CONTEXT** keeps D-38's form, "Rent · n days overdue · Level k of 3 · m sent". m counts confirmed `rent_reminder` messages, and "· c called" is appended when logged calls exist. Level k is the tone currently selected. Before the due date the days chip reads "Due DD MMM YYYY".
+3. **Stale-board warning** `S01-BNR-STALE` †. On rent kinds, S-01 shows one warning line above the message field when the landlord's last rent-board update falls before the entry's `due_on` and `due_on` ≤ today:
+   - E1-12 †: "You last updated this board 9 days ago — check before sending." The count is today minus the date of the last update, in India time, with "1 day ago" in the singular.
+   - E1-13 †, when no update exists at all: "You have not updated this board yet — check before sending."
+   - The **last rent-board update** is the latest of `payment.created_at`, `payment.voided_at`, and `audit_event.created_at` for `entity_type = 'rent_entry'`, across all of the landlord's units (L-04 is one board).
+   - The warning is information only. It never disables Open in WhatsApp, Copy or Email instead.
+
+**Consequences.** Supersedes D-38's "does not depend on how many reminders were sent" and its calls sentence. Re-resolves the S-01 sequence OPEN and calls OPEN and the L-05 calls OPEN: calls count. L04-BTN-REMIND ("pre-loaded with the escalation level matching days overdue") and L05-BTN-REMIND ("at the correct escalation level") mean this rule. There is no schema change, because the level and the warning read existing columns. Two E1 messages are added (E1-12 †, E1-13 †). A landlord who checks the board and finds nothing to record writes nothing, so the warning can show when the board is in fact current. That is the accepted cost: "check before sending" is still true.
+
 ---
 
 ## 6 · Navigation and missing flows
