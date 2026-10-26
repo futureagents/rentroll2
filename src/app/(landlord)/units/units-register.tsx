@@ -20,7 +20,7 @@ import {
   useToast,
   type Column,
 } from "@/components/ui";
-import { compareUnits, unitLabel } from "@/lib/display/unit-label";
+import { compareUnits, unitLabel, unitName } from "@/lib/display/unit-label";
 import { formatRupees } from "@/lib/format";
 
 import { FilterBox } from "./_components/filter-box";
@@ -82,7 +82,7 @@ function Register({ properties, units, initialQuery, initialAdd }: UnitRegisterP
   const shown = useMemo(
     () =>
       rows.filter((r) =>
-        matchesText(query, [r.unitNumber, r.propertyName, r.type, r.tenantName, OCCUPANCY_CHIP[r.occupancy].label]),
+        matchesText(query, [r.label, r.propertyName, r.type, r.tenantName, OCCUPANCY_CHIP[r.occupancy].label]),
       ),
     [rows, query],
   );
@@ -144,7 +144,7 @@ function Register({ properties, units, initialQuery, initialAdd }: UnitRegisterP
         </RowActions>
       ),
     },
-    { id: "unit", header: "Unit", cell: (r) => <span className="font-medium text-ink">{r.unitNumber}</span>, sortValue: (r) => r.unitNumber },
+    { id: "unit", header: "Unit", cell: (r) => <span className="font-medium text-ink">{unitName(r.unitNumber)}</span>, sortValue: (r) => r.unitNumber },
     { id: "property", header: "Property", cell: (r) => r.propertyName, sortValue: (r) => r.propertyName.toLowerCase() },
     { id: "type", header: "Type", cell: (r) => r.type ?? <span className="text-muted">—</span>, sortValue: (r) => r.type ?? "" },
     { id: "rent", header: "Rent", align: "right", key: true, cell: (r) => formatRupees(r.rent), sortValue: (r) => r.rent },

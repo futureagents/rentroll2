@@ -60,67 +60,101 @@ function put(url: string, body: Blob, onProgress: (percent: number) => void): Pr
   });
 }
 
+/**
+ * Compresses (photos), asks the server for a one-time URL in the landlord's folder, and uploads.
+ * Errors use the S04-ERR wording where it applies.
+ */
+export async function uploadFile(
+  file: File,
+  type: TenancyDocumentType,
+  onProgress: (percent: number) => void,
+): Promise<{ ok: true; documentId: string } | { ok: false; error: string }> {
+  const body = await compress(file);
+  const mime = body.type || file.type;
+  const problem = uploadProblem(type, mime, body.size);
+  if (problem) return { ok: false, error: problem };
+  const started = await startUploadAction({ type, mime, size: body.size });
+  if (!started.ok) {
+    return { ok: false, error: started.error === TOO_LARGE || started.error === NOT_SUPPORTED ? started.error : "Could not upload" };
+  }
+  const stored = await put(started.upload.signedUrl, body, onProgress);
+  return stored ? { ok: true, documentId: started.upload.documentId } : { ok: false, error: "Could not upload" };
+}
+
+export interface SettledUploads {
+  finished: { documentId: string; fileName: string; alt: string | null }[];
+  failed: boolean;
+}
+
 export function useUploads(type: TenancyDocumentType, max: number, altFor: (index: number) => string) {
   const [items, setItems] = useState<UploadItem[]>([]);
-  // Mirrors `items` synchronously so two quick adds never exceed `max`.
-  const count = useRef(0);
+  // `latest` mirrors `items` synchronously: two quick adds never exceed `max`, and a save that
+  // waited for uploads (S-04) reads the finished list without waiting for a re-render.
+  const latest = useRef<UploadItem[]>([]);
+  const pending = useRef(new Set<Promise<void>>());
   const counter = useRef(0);
   const urls = useRef<string[]>([]);
 
   useEffect(() => () => urls.current.forEach((u) => URL.revokeObjectURL(u)), []);
 
-  const patch = useCallback((id: string, change: Partial<UploadItem>) => {
-    setItems((list) => list.map((item) => (item.id === id ? { ...item, ...change } : item)));
+  const update = useCallback((change: (list: UploadItem[]) => UploadItem[]) => {
+    latest.current = change(latest.current);
+    setItems(latest.current);
   }, []);
 
+  const patch = useCallback(
+    (id: string, change: Partial<UploadItem>) => update((list) => list.map((item) => (item.id === id ? { ...item, ...change } : item))),
+    [update],
+  );
+
   const upload = useCallback(
-    async (id: string, file: File) => {
-      const body = await compress(file);
-      const mime = body.type || file.type;
-      const problem = uploadProblem(type, mime, body.size);
-      if (problem) return patch(id, { error: problem, progress: undefined });
-      const started = await startUploadAction({ type, mime, size: body.size });
-      if (!started.ok) {
-        const error = started.error === TOO_LARGE || started.error === NOT_SUPPORTED ? started.error : "Could not upload";
-        return patch(id, { error, progress: undefined });
-      }
-      const stored = await put(started.upload.signedUrl, body, (progress) => patch(id, { progress }));
-      if (!stored) return patch(id, { error: "Could not upload", progress: undefined });
-      patch(id, { documentId: started.upload.documentId, progress: undefined });
+    (id: string, file: File) => {
+      const job = uploadFile(file, type, (progress) => patch(id, { progress })).then((result) =>
+        patch(id, result.ok ? { documentId: result.documentId, progress: undefined } : { error: result.error, progress: undefined }),
+      );
+      pending.current.add(job);
+      void job.finally(() => pending.current.delete(job));
     },
     [patch, type],
   );
 
   const add = useCallback(
     (files: File[]) => {
-      const accepted = files.slice(0, Math.max(0, max - count.current));
+      const already = latest.current.length;
+      const accepted = files.slice(0, Math.max(0, max - already));
       const fresh = accepted.map((file, i): UploadItem => {
         counter.current += 1;
         const src = file.type.startsWith("image/") ? URL.createObjectURL(file) : "";
         if (src) urls.current.push(src);
-        return { id: `local-${counter.current}`, src, alt: altFor(count.current + i), fileName: file.name, progress: 0 };
+        return { id: `local-${counter.current}`, src, alt: altFor(already + i), fileName: file.name, progress: 0 };
       });
-      count.current += fresh.length;
-      setItems((list) => [...list, ...fresh]);
-      fresh.forEach((item, i) => void upload(item.id, accepted[i]));
+      update((list) => [...list, ...fresh]);
+      fresh.forEach((item, i) => upload(item.id, accepted[i]));
     },
-    [altFor, max, upload],
+    [altFor, max, update, upload],
   );
 
-  const remove = useCallback((id: string) => {
-    count.current = Math.max(0, count.current - 1);
-    setItems((list) => list.filter((item) => item.id !== id));
-  }, []);
-  const reset = useCallback(() => {
-    count.current = 0;
-    setItems([]);
-  }, []);
+  const remove = useCallback((id: string) => update((list) => list.filter((item) => item.id !== id)), [update]);
+  const reset = useCallback(() => update(() => []), [update]);
+
+  const summarise = useCallback(
+    (list: UploadItem[]): SettledUploads => ({
+      finished: list
+        .filter((item): item is UploadItem & { documentId: string } => Boolean(item.documentId))
+        .map((item) => ({ documentId: item.documentId, fileName: item.fileName, alt: type === "move_in_photo" ? item.alt : null })),
+      failed: list.some((item) => Boolean(item.error)),
+    }),
+    [type],
+  );
+
+  /** S-04: a save pressed while photos upload waits for them, then reads what finished. */
+  const whenSettled = useCallback(async (): Promise<SettledUploads> => {
+    while (pending.current.size > 0) await Promise.all([...pending.current]);
+    return summarise(latest.current);
+  }, [summarise]);
 
   const uploading = items.some((item) => !item.error && !item.documentId);
-  const failed = items.some((item) => Boolean(item.error));
-  const finished = items
-    .filter((item): item is UploadItem & { documentId: string } => Boolean(item.documentId))
-    .map((item) => ({ documentId: item.documentId, fileName: item.fileName, alt: type === "move_in_photo" ? item.alt : null }));
+  const { finished, failed } = summarise(items);
 
-  return { items, add, remove, reset, uploading, failed, finished };
+  return { items, add, remove, reset, uploading, failed, finished, whenSettled };
 }
