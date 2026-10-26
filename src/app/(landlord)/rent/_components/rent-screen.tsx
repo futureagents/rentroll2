@@ -19,12 +19,12 @@ import {
   useToast,
   type Column,
 } from "@/components/ui";
+import { unitLabel } from "@/lib/display/unit-label";
 import { formatDate, formatMonth, formatRupees } from "@/lib/format";
 
 import { bulkMarkPaidAction, createRentRowsAction } from "../actions";
 import { addMonths, type IsoDate, type MonthKey } from "../_lib/calendar";
 import { rentCsv, rentCsvFilename } from "../_lib/export";
-import { unitLabel } from "../_lib/labels";
 import { planBulkPayments } from "../_lib/payments";
 import {
   deriveRentState,
@@ -107,7 +107,7 @@ function MarkPaidCell({
         Mark paid
       </Button>
       {open && pressedHere ? (
-        <RowPopover anchor={anchor} label={`Mark ${unitLabel(row.entry.unitNumber)} paid`} onClose={() => onToggle(false)}>
+        <RowPopover anchor={anchor} label={`Mark ${unitLabel(row.entry)} paid`} onClose={() => onToggle(false)}>
           <MarkPaidForm
             rentEntryId={row.entry.id}
             state={row.state}
@@ -258,7 +258,7 @@ function RentBoard({ board, detail, today, currentMonth, missingRows, initialFil
               className="h-4 w-4 accent-primary"
               checked={selected.has(r.entry.id)}
               onChange={() => toggle(r.entry.id)}
-              aria-label={`Select ${unitLabel(r.entry.unitNumber)} for bulk mark paid`}
+              aria-label={`Select ${unitLabel(r.entry)} for bulk mark paid`}
             />
           </RowActions>
         ) : null,
@@ -268,10 +268,7 @@ function RentBoard({ board, detail, today, currentMonth, missingRows, initialFil
       header: "Unit",
       sortValue: (r) => `${r.entry.propertyName} ${r.entry.unitNumber.padStart(8, "0")}`,
       cell: (r) => (
-        <div className="flex flex-col">
-          <span className="text-ink">{unitLabel(r.entry.unitNumber)}</span>
-          {multipleProperties ? <span className="text-small text-muted">{r.entry.propertyName}</span> : null}
-        </div>
+<span className="text-ink">{unitLabel(r.entry)}</span>
       ),
     },
     { id: "tenant", header: "Tenant", key: true, sortValue: (r) => r.entry.tenantName, cell: (r) => r.entry.tenantName },
@@ -477,7 +474,7 @@ function RentBoard({ board, detail, today, currentMonth, missingRows, initialFil
             caption={`Rent for ${formatMonth(board.month)}`}
             onRowClick={(r) => openEntry(r.entry.id)}
             selectedKey={panelId}
-            mobileTitle={(r) => unitLabel(r.entry.unitNumber)}
+            mobileTitle={(r) => unitLabel(r.entry)}
             empty={emptyMessage ? { message: emptyMessage } : undefined}
           />
         )}
@@ -507,7 +504,6 @@ function RentBoard({ board, detail, today, currentMonth, missingRows, initialFil
           key={panelEntry.id}
           entry={panelEntry}
           detail={detail?.id === panelEntry.id ? detail : null}
-          multipleProperties={multipleProperties}
           today={today}
           onClose={closePanel}
         />

@@ -19,11 +19,11 @@ import {
   Tooltip,
   useToast,
 } from "@/components/ui";
-import { formatDate, formatPhone, formatRupees } from "@/lib/format";
+import { unitLabel } from "@/lib/display/unit-label";
+import { formatDate, formatMonth, formatPhone, formatRupees } from "@/lib/format";
 
 import { editAmountAction, logCallAction, voidPaymentAction } from "../actions";
 import type { IsoDate } from "../_lib/calendar";
-import { panelTitle } from "../_lib/labels";
 import { receiptLabel, validateAmountEdit } from "../_lib/payments";
 import { deriveRentState, partPaidLine, rentChip, rowActions } from "../_lib/status";
 import { CALL_OUTCOMES, buildReminderTimeline, reminderHistorySummary } from "../_lib/timeline";
@@ -43,13 +43,11 @@ const PAYSHEET_PENDING = "The payment sheet is not available yet.";
 export function RentPanel({
   entry,
   detail,
-  multipleProperties,
   today,
   onClose,
 }: {
   entry: BoardEntry;
   detail: RentEntryDetail | null;
-  multipleProperties: boolean;
   today: IsoDate;
   onClose: () => void;
 }) {
@@ -103,7 +101,8 @@ export function RentPanel({
     <SidePanel
       open
       onClose={onClose}
-      title={panelTitle(source, multipleProperties)}
+      // L05-HDR "Flat 2A · February 2026", the unit always qualified with its property (#13 amends D-38).
+      title={`${unitLabel(source)} · ${formatMonth(source.month)}`}
       subtitle={
         <span className="flex flex-wrap items-center gap-2">
           <StatusChip tone={chip.tone}>{chip.label}</StatusChip>
@@ -320,16 +319,24 @@ function EditAmountForm({
   const [amount, setAmount] = useState<number | null>(state.due);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  // One submission, one edit and one audit row; the ref closes the gap before `pending` re-renders.
+  const inFlight = useRef(false);
   const toast = useToast();
 
   const submit = () => {
+    if (inFlight.current) return;
     const problem = validateAmountEdit({ state, next: amount });
     if (problem) return setError(problem);
+    inFlight.current = true;
     startTransition(async () => {
-      const result = await editAmountAction({ rentEntryId, next: amount! });
-      if (!result.ok) return setError(result.error);
-      toast.show({ message: `Amount due changed to ${formatRupees(amount!)}.` });
-      onDone();
+      try {
+        const result = await editAmountAction({ rentEntryId, next: amount! });
+        if (!result.ok) return setError(result.error);
+        toast.show({ message: `Amount due changed to ${formatRupees(amount!)}.` });
+        onDone();
+      } finally {
+        inFlight.current = false;
+      }
     });
   };
 
@@ -357,9 +364,13 @@ function EditAmountForm({
         <Button variant="quiet" type="button" onClick={onDone}>
           Cancel
         </Button>
-        <Button type="submit" loading={pending}>
-          Save amount
-        </Button>
+        {pending ? (
+          <Button type="submit" disabled disabledReason="Saving the amount." loading>
+            Save amount
+          </Button>
+        ) : (
+          <Button type="submit">Save amount</Button>
+        )}
       </div>
     </form>
   );

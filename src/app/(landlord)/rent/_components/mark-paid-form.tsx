@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 
 import { Button, DateField, MoneyField, TextField } from "@/components/ui";
 import { formatRupees } from "@/lib/format";
@@ -36,17 +36,27 @@ export function MarkPaidForm({
   const [reference, setReference] = useState(defaults.reference);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  // One submission records one payment. A part payment recorded twice would show money the
+  // landlord never received, and the balance cap cannot catch it while a balance remains. The ref
+  // closes the gap before `pending` re-renders (a double click, or Enter then click).
+  const inFlight = useRef(false);
   const announce = usePaymentToast();
 
   const submit = () => {
+    if (inFlight.current) return;
     const problem = validatePayment({ amount, receivedOn, balance: state.balance, today });
     if (problem) return setError(problem);
     setError(null);
+    inFlight.current = true;
     startTransition(async () => {
-      const result = await markPaidAction({ rentEntryId, amount: amount!, receivedOn, reference });
-      if (!result.ok) return setError(result.error);
-      announce(result.payments);
-      onDone();
+      try {
+        const result = await markPaidAction({ rentEntryId, amount: amount!, receivedOn, reference });
+        if (!result.ok) return setError(result.error);
+        announce(result.payments);
+        onDone();
+      } finally {
+        inFlight.current = false;
+      }
     });
   };
 
@@ -85,9 +95,13 @@ export function MarkPaidForm({
         <Button variant="quiet" type="button" onClick={onCancel}>
           Cancel
         </Button>
-        <Button type="submit" loading={pending}>
-          Record payment
-        </Button>
+        {pending ? (
+          <Button type="submit" disabled disabledReason="Recording the payment." loading>
+            Record payment
+          </Button>
+        ) : (
+          <Button type="submit">Record payment</Button>
+        )}
       </div>
     </form>
   );

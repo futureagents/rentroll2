@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { firstOfMonth, monthOf, type IsoDate, type MonthKey } from "@/app/(landlord)/rent/_lib/calendar";
 import type { ReminderMessage } from "@/app/(landlord)/rent/_lib/timeline";
+import { compareUnits } from "@/lib/display/unit-label";
 import type {
   BoardEntry,
   BoardPayment,
@@ -101,11 +102,7 @@ export async function loadRentBoard(db: SupabaseClient, month: MonthKey): Promis
   ]);
   if (units.error) throw new Error(units.error.message);
   const rows = await hydrate(db, must(entries) as EntryRow[]);
-  rows.sort(
-    (a, b) =>
-      a.propertyName.localeCompare(b.propertyName) ||
-      a.unitNumber.localeCompare(b.unitNumber, undefined, { numeric: true }),
-  );
+  rows.sort(compareUnits);
   return { month, entries: rows, properties: must(properties) as { id: string; name: string }[], hasUnits: (units.count ?? 0) > 0 };
 }
 
@@ -114,7 +111,7 @@ export async function loadRentBoard(db: SupabaseClient, month: MonthKey): Promis
 export async function loadRentEntry(db: SupabaseClient, entryId: string): Promise<RentEntryDetail | null> {
   const entry = must(await db.from("rent_entry").select(ENTRY_COLUMNS).eq("id", entryId).maybeSingle()) as EntryRow | null;
   if (!entry) return null;
-  const [[hydrated], messages, audits, properties] = await Promise.all([
+  const [[hydrated], messages, audits] = await Promise.all([
     hydrate(db, [entry]),
     db
       .from("message")
@@ -128,13 +125,10 @@ export async function loadRentEntry(db: SupabaseClient, entryId: string): Promis
       .eq("entity_type", "rent_entry")
       .eq("entity_id", entryId)
       .order("created_at"),
-    db.from("property").select("id", { count: "exact", head: true }),
   ]);
-  if (properties.error) throw new Error(properties.error.message);
 
   return {
     ...hydrated,
-    multipleProperties: (properties.count ?? 0) > 1,
     messages: (must(messages) as Record<string, unknown>[]).map((m) => ({
       id: String(m.id),
       kind: m.kind as ReminderMessage["kind"],

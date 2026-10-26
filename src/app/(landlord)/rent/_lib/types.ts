@@ -35,8 +35,6 @@ export interface RentBoardData {
 }
 
 export interface RentEntryDetail extends BoardEntry {
-  /** D-38: the panel header names the property when the landlord has more than one. */
-  multipleProperties: boolean;
   messages: ReminderMessage[];
   audits: ReminderAudit[];
 }
