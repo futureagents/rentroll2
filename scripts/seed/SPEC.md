@@ -1,5 +1,7 @@
 # RentRoll demo seed — design
 
+> **Updated 2026-10-27.** The cast is now one property with five units (1B paid, 2A paid late, 3A part paid, 4C overdue, 2B vacant and settled) and three months of rent history; see `data.mjs`. §2's table and §7's worked example describe the original 14-unit design and are kept for its scenario reasoning. §9 is resolved: `load.mjs` maps the dataset onto the schema in `supabase/migrations`.
+
 Ticket C2. A realistic, deterministic demo dataset for RentRoll v1: one Pune landlord, two properties, fourteen units, and every situation the dashboard, boards and tenant pages need to show.
 
 **Sources.** RentRoll Product Scope Document v1.0 and RentRoll UI/UX Specification v1.0 (`source/`). Screen IDs (L-03, T-01, S-01 …) and element IDs (L04-BTN-MARKPAID …) refer to the UI/UX spec. Example values are taken from those documents wherever they give one: *Kulkarni Apartments*, *Flat 2A*, *Suresh Khan · Flat 4C · 18 days overdue*, *geyser leaking, urgent*, *Part paid — ₹4,000 pending*, *agreement ends in 22 days*, *Expired 14 days ago*, *Plumbing reported 4 times in 12 months*, rents of ₹16,000–₹18,000.
