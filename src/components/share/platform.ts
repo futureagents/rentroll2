@@ -73,6 +73,11 @@ export function startShare(data: ShareData, platform: SharePlatform): Promise<Sh
   );
 }
 
+/** `what` inside a sentence: "Copy tenant link", but "Copy UPI ID" keeps its capitals. */
+export function midSentence(what: string): string {
+  return /^[A-Z]{2}/.test(what) ? what : `${what.charAt(0).toLowerCase()}${what.slice(1)}`;
+}
+
 /** The copy button's label for 2 seconds after a copy: "Tenant link copied". */
 export function copiedLabel(what: string): string {
   return `${what.charAt(0).toUpperCase()}${what.slice(1)} copied`;

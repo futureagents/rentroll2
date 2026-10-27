@@ -30,6 +30,7 @@ import {
   copiedLabel,
   copiedMessage,
   isAbsoluteLink,
+  midSentence,
   startCopy,
   startShare,
   type SharePlatform,
@@ -187,7 +188,7 @@ function ActionButton({
 
 /** S03-BTN-COPY. */
 export function CopyAction(props: CopyActionProps) {
-  const { value, what, label = `Copy ${what.toLowerCase()}`, platform, onCopied } = props;
+  const { value, what, label = `Copy ${midSentence(what)}`, platform, onCopied } = props;
   const flow = useCopyFlow(what, platform, onCopied);
   return (
     <>
@@ -209,7 +210,7 @@ export function ShareAction(props: ShareActionProps) {
       <Button
         variant="icon"
         icon="share"
-        label={props.label ?? `Share ${what.toLowerCase()}`}
+        label={props.label ?? `Share ${midSentence(what)}`}
         size={props.size}
         disabled
         disabledReason={LINK_UNAVAILABLE}
@@ -223,7 +224,7 @@ export function ShareAction(props: ShareActionProps) {
       <>
         <ActionButton
           icon="copy"
-          label={`Copy ${what.toLowerCase()}`}
+          label={`Copy ${midSentence(what)}`}
           copied={flow.copied}
           props={props}
           onClick={() => flow.copy(url)}
@@ -247,7 +248,7 @@ export function ShareAction(props: ShareActionProps) {
     <>
       <ActionButton
         icon="share"
-        label={props.label ?? `Share ${what.toLowerCase()}`}
+        label={props.label ?? `Share ${midSentence(what)}`}
         copied={false}
         props={props}
         onClick={onClick}

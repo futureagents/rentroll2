@@ -9,6 +9,7 @@ export {
   copiedLabel,
   copiedMessage,
   isAbsoluteLink,
+  midSentence,
   startCopy,
   startShare,
   type SharePlatform,

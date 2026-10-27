@@ -7,7 +7,7 @@ import { useEffect, useId, useRef } from "react";
 
 import { Button, Modal } from "@/components/ui";
 
-import { startCopy, type SharePlatform } from "./platform";
+import { midSentence, startCopy, type SharePlatform } from "./platform";
 
 export type ManualCopyReason = "clipboard" | "share";
 
@@ -51,7 +51,7 @@ export function ManualCopyDialog({ open, reason, value, what, platform, onCopied
     <Modal open={open} labelledBy={`${id}-title`} onDismiss={onClose}>
       <div className="flex flex-col gap-4 p-4 sm:p-6">
         <h2 id={`${id}-title`} className="text-h1 text-ink">
-          Copy the {what.toLowerCase()}
+          Copy the {midSentence(what)}
         </h2>
         <p className="text-body">
           {LEAD[reason]} Press Ctrl+C, or ⌘C on a Mac. On a phone, press and hold it.
@@ -59,7 +59,7 @@ export function ManualCopyDialog({ open, reason, value, what, platform, onCopied
         <textarea
           ref={field}
           readOnly
-          rows={3}
+          rows={4}
           value={value}
           aria-label={what}
           onFocus={(event) => event.currentTarget.select()}

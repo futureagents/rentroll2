@@ -119,7 +119,7 @@ function Demo({ links }: { links: Links | null }) {
             title="Blocked frame"
             src="/dev/share?embed=blocked"
             allow="clipboard-write 'none'; web-share 'none'"
-            className="h-40 w-full rounded-sm border border-line"
+            className="h-96 w-full rounded-sm border border-line"
           />
         </Section>
       )}
