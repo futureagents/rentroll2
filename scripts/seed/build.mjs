@@ -58,10 +58,13 @@ export function buildDataset(runDate, src = data) {
   const rentEntries = [];
   const payments = [];
   const reminders = [];
+  // Rows start at the history window (the run month and the months before it), or at move-in
+  // when that is later. Without a window, from move-in.
+  const windowStart = src.historyMonths ? addMonths(firstOfMonth(runDate), -(src.historyMonths - 1)) : '0000-01-01';
   for (const t of tenancies) {
     const s = t._src;
     const last = t.endedOn ?? runDate;
-    let month = firstOfMonth(t.startedOn);
+    let month = maxIso(firstOfMonth(t.startedOn), windowStart);
     let index = 0;
     while (month <= firstOfMonth(last)) {
       const isFirst = month === firstOfMonth(t.startedOn) && dayOfMonth(t.startedOn) > 1;
@@ -147,6 +150,10 @@ export function buildDataset(runDate, src = data) {
         description: r.description,
         reportedBy: r.reportedBy,
         reportedAt: r.reportedAtResolved,
+        assignedAt: r.assignedAt ? stamp(r.assignedAt) : null,
+        startedAt: r.startedAt ? stamp(r.startedAt) : null,
+        closedAt: r.closedAt ? stamp(r.closedAt) : null,
+        closingNote: r.closingNote ?? null,
         ageDays: diffDays(runDate, at(r.reportedAt)),
         vendor: vendor ? { name: vendor.name, phone: vendor.phone } : null,
         cost: r.cost,
