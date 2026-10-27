@@ -5,7 +5,7 @@
 // (startUploadAction: a one-time URL in the landlord's own folder, D-15). Nothing is attached to
 // any record, so a photo uploaded here is an unattached object in that folder. Signed out, the
 // upload is simulated and the page says so.
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { startUploadAction } from "@/app/(landlord)/units/actions";
 import { Button, TextArea } from "@/components/ui";
@@ -67,6 +67,13 @@ function DemoColumn({ title, max, storage }: { title: string; max: number; stora
   const [transport] = useState(() => demoTransport(storage, simulation));
   const { queue, photos } = useUploadQueue({ max, transport, altFor: (i) => `Photo ${i + 1} of the problem` });
   const [description, setDescription] = useState("");
+  // Submit waits for uploads while typing continues, so it must send the text as it is when the
+  // wait ends, not as it was when Submit was pressed.
+  const latestDescription = useRef("");
+  const describe = (value: string) => {
+    latestDescription.current = value;
+    setDescription(value);
+  };
   const [phase, setPhase] = useState<"editing" | "waiting" | "submitted">("editing");
   const [submitted, setSubmitted] = useState<{ description: string; photos: readonly QueuedPhoto[] } | null>(null);
   const [making, setMaking] = useState<string | null>(null);
@@ -89,12 +96,12 @@ function DemoColumn({ title, max, storage }: { title: string; max: number; stora
       focusFirstFailedPhoto(queue);
       return;
     }
-    setSubmitted({ description, photos: settled });
+    setSubmitted({ description: latestDescription.current, photos: settled });
     setPhase("submitted");
   };
   const startAgain = () => {
     queue.dispose();
-    setDescription("");
+    describe("");
     setSubmitted(null);
     setPhase("editing");
   };
@@ -131,7 +138,7 @@ function DemoColumn({ title, max, storage }: { title: string; max: number; stora
           <TextArea
             label="What is the problem?"
             value={description}
-            onChange={setDescription}
+            onChange={describe}
             minLines={3}
             helper="Typing is never blocked by an upload."
           />
@@ -146,11 +153,12 @@ function DemoColumn({ title, max, storage }: { title: string; max: number; stora
         <fieldset className="flex flex-col gap-2 border-t border-line pt-3">
           <legend className="text-label uppercase text-muted">Simulate</legend>
           <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" size={48} aria-pressed={armedView.slow} onClick={() => simulation.toggle("slow")}>
-              {armedView.slow ? "Next upload slow ✓" : "Slow upload"}
+            {/* Armed shows as the filled style and aria-pressed; the label stays put so nothing reflows. */}
+            <Button variant={armedView.slow ? "primary" : "secondary"} size={48} aria-pressed={armedView.slow} onClick={() => simulation.toggle("slow")}>
+              Slow upload
             </Button>
-            <Button variant="secondary" size={48} aria-pressed={armedView.fail} onClick={() => simulation.toggle("fail")}>
-              {armedView.fail ? "Next upload fails ✓" : "Failed upload"}
+            <Button variant={armedView.fail ? "primary" : "secondary"} size={48} aria-pressed={armedView.fail} onClick={() => simulation.toggle("fail")}>
+              Failed upload
             </Button>
             {(
               [
@@ -172,6 +180,9 @@ function DemoColumn({ title, max, storage }: { title: string; max: number; stora
             )}
           </div>
           <p className="text-small text-muted">
+            {armedView.slow || armedView.fail
+              ? `Armed: the next upload ${armedView.slow && armedView.fail ? "fails, the one after is slow" : armedView.fail ? "fails" : "is slow"}. `
+              : ""}
             Slow and Failed apply to the next upload attempt only, so Retry then succeeds. Slow holds the upload back for about 15
             seconds before it really starts; for a true slow link use the browser&apos;s network throttling.
           </p>
