@@ -18,7 +18,7 @@ The design, the scenario catalogue and the open schema questions are in [SPEC.md
 | `load.mjs` | Writes the dataset into the hosted database (`npm run seed:demo`) | done |
 | `lib/dates.mjs` | Calendar-date helpers (UTC-safe; "today" in Asia/Kolkata) | done |
 
-`load.mjs` is idempotent. It finds the demo landlord only by its email, deletes that one auth user (which cascades the landlord, its rows and its number sequence) and its storage folder, then recreates everything. No other user, row or file is touched. It reads `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` from `.env.local`; the password is `DEMO_LANDLORD_PASSWORD` if set, otherwise one is generated and printed for that run. Files are placeholder PNGs and one-page PDFs.
+`load.mjs` is idempotent. It finds the demo landlord only by its email, deletes that one auth user (which cascades the landlord, its rows and its number sequence) and its storage folder, then recreates everything. No other user, row or file is touched. It reads `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` from `.env.local`; the password is `DEMO_LANDLORD_PASSWORD` if set, else `DEV_LANDLORD_PASSWORD` when `DEV_LANDLORD_EMAIL` is the demo landlord's email, otherwise one is generated and printed for that run. A password from `.env.local` is never printed. Because the auth user is recreated, every run signs out existing demo sessions; with a password in `.env.local` the same credentials keep working. Files are placeholder PNGs and one-page PDFs.
 
 Not seeded: meters and readings, and vacant-unit listings. The schema has no table for either, and product.md §4/§16 rules listings out of the product.
 
