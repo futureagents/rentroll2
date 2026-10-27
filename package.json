@@ -10,7 +10,8 @@
     "lint": "eslint . && npm run lint:boundaries",
     "lint:boundaries": "node scripts/check-boundaries.mjs",
     "test": "vitest run",
-    "verify": "npm run typecheck && npm run lint && npm run test"
+    "verify": "npm run typecheck && npm run lint && npm run test",
+    "seed:demo": "node scripts/seed/load.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.3.0",
