@@ -17,7 +17,7 @@
 import Link from "next/link";
 import { useContext, useEffect, useId, useRef, useState } from "react";
 
-import { Button, CopyButton, Modal, MoneyField, TextField } from "@/components/ui";
+import { Button, CopyButton, Modal, MoneyField, TextField, ToastProvider } from "@/components/ui";
 import { copyText, COPIED_MESSAGE, COPIED_MS } from "@/components/ui/share";
 import { ToastContext } from "@/components/ui/toast";
 import { formatRupees } from "@/lib/format";
@@ -41,6 +41,8 @@ const NO_AMOUNT_REASON = "Enter an amount first.";
 const SETTINGS_HREF = "/settings";
 /** How long a launched app has to take the page out of view before the sheet says it did not open. */
 const LAUNCH_WAIT_MS = 2500;
+/** Hidden for less than this and back again: the browser blinked, no app took over. */
+const BLINK_MS = 1500;
 /** E3: past this, a skeleton says it is still working rather than looking stuck. */
 const SLOW_LOAD_MS = 5000;
 
@@ -74,35 +76,40 @@ export interface PaymentSheetProps {
 
 export function PaymentSheet({ context, amount, note, payee, onSendLink, onClose, platform }: PaymentSheetProps) {
   const titleId = useId();
+  useReturnFocus();
   return (
     <Modal open labelledBy={titleId} onDismiss={onClose}>
-      <div className="flex h-full max-h-[inherit] flex-col">
-        <div className="flex items-start justify-between gap-3 border-b border-line px-4 py-4 sm:px-6">
-          <div className="flex min-w-0 flex-col gap-1">
-            <h2 id={titleId} tabIndex={-1} autoFocus className="text-h1 text-ink focus:outline-none">
-              Payment request
-            </h2>
-            <p className="text-small break-words text-muted">{context}</p>
+      {/* Its own provider: the page's toast sits under the dialog's top layer, so E1-03 "Copied."
+          would be hidden while the sheet is open. */}
+      <ToastProvider>
+        <div className="flex h-full flex-col sm:max-h-[calc(100dvh-48px)]">
+          <div className="flex items-start justify-between gap-3 border-b border-line px-4 py-4 sm:px-6">
+            <div className="flex min-w-0 flex-col gap-1">
+              <h2 id={titleId} tabIndex={-1} autoFocus className="text-h1 text-ink focus:outline-none">
+                Payment request
+              </h2>
+              <p className="text-small break-words text-muted">{context}</p>
+            </div>
+            <Button variant="icon" icon="close" label="Close" onClick={onClose} />
           </div>
-          <Button variant="icon" icon="close" label="Close" onClick={onClose} />
-        </div>
 
-        {payee.status === "loading" ? (
-          <LoadingBody />
-        ) : payee.status === "failed" ? (
-          <FailedBody onRetry={payee.onRetry} onClose={onClose} />
-        ) : payee.payee === null ? (
-          <NoUpiBody onClose={onClose} />
-        ) : (
-          <ReadyBody
-            payee={payee.payee}
-            initialAmount={amount}
-            initialNote={note}
-            onSendLink={onSendLink}
-            platform={platform}
-          />
-        )}
-      </div>
+          {payee.status === "loading" ? (
+            <LoadingBody />
+          ) : payee.status === "failed" ? (
+            <FailedBody onRetry={payee.onRetry} onClose={onClose} />
+          ) : payee.payee === null ? (
+            <NoUpiBody onClose={onClose} />
+          ) : (
+            <ReadyBody
+              payee={payee.payee}
+              initialAmount={amount}
+              initialNote={note}
+              onSendLink={onSendLink}
+              platform={platform}
+            />
+          )}
+        </div>
+      </ToastProvider>
     </Modal>
   );
 }
@@ -157,12 +164,13 @@ function ReadyBody({
       payee={payee}
       lead={platform === "ios"}
       tooLong={request !== null && matrix === null}
+      onDownload={downloadQr}
     />
   );
 
   return (
     <>
-      <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 py-4 sm:px-6">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-4 sm:px-6">
         {/* S02-FLD-AMOUNT */}
         <MoneyField label="Amount" value={amount} onChange={setAmount} required />
         {/* S02-FLD-NOTE */}
@@ -236,31 +244,25 @@ function ReadyBody({
         </p>
       </div>
 
-      <div className="flex flex-col-reverse gap-2 border-t border-line px-4 py-4 sm:flex-row sm:justify-end sm:px-6">
+      {/* Two across on a phone, so the footer leaves the QR as much room as it can. */}
+      <div className="grid grid-cols-2 gap-2 border-t border-line px-4 py-4 sm:flex sm:justify-end sm:px-6">
         {ready ? (
           <>
-            {/* S02-BTN-DOWNLOADQR */}
-            <Button variant="quiet" onClick={downloadQr}>
-              Download QR
-            </Button>
             {/* S02-BTN-COPYLINK */}
-            <Button variant="secondary" icon="copy" onClick={copyLink}>
+            <Button className="w-full sm:w-auto" variant="secondary" icon="copy" onClick={copyLink}>
               Copy link
             </Button>
             {/* S02-BTN-SENDLINK */}
-            <Button variant="secondary" icon="share" onClick={() => onSendLink(ready.request, ready.link)}>
+            <Button className="w-full sm:w-auto" variant="secondary" icon="share" onClick={() => onSendLink(ready.request, ready.link)}>
               Send link
             </Button>
           </>
         ) : (
           <>
-            <Button variant="quiet" disabled disabledReason={NO_AMOUNT_REASON}>
-              Download QR
-            </Button>
-            <Button variant="secondary" icon="copy" disabled disabledReason={NO_AMOUNT_REASON}>
+            <Button className="w-full sm:w-auto" variant="secondary" icon="copy" disabled disabledReason={NO_AMOUNT_REASON}>
               Copy link
             </Button>
-            <Button variant="secondary" icon="share" disabled disabledReason={NO_AMOUNT_REASON}>
+            <Button className="w-full sm:w-auto" variant="secondary" icon="share" disabled disabledReason={NO_AMOUNT_REASON}>
               Send link
             </Button>
           </>
@@ -277,6 +279,7 @@ function QrBlock({
   payee,
   lead,
   tooLong,
+  onDownload,
 }: {
   matrix: ReturnType<typeof qrMatrix>;
   amount: number | null;
@@ -284,6 +287,7 @@ function QrBlock({
   /** iOS: the QR is the main way to pay, so it is larger and says what to do with it. */
   lead: boolean;
   tooLong: boolean;
+  onDownload: () => void;
 }) {
   // "Large enough to scan from a laptop screen": 256px at desktop, up to 320px on a phone.
   const size = lead ? "max-w-80" : "max-w-64";
@@ -303,6 +307,12 @@ function QrBlock({
         )}
       </div>
       <p className="w-full text-center text-small break-words text-muted">To {payee.name}</p>
+      {/* S02-BTN-DOWNLOADQR, beside the code it saves. */}
+      {matrix && (
+        <Button variant="quiet" onClick={onDownload}>
+          Download QR
+        </Button>
+      )}
     </div>
   );
 }
@@ -359,37 +369,56 @@ function LaunchButton({
 
 /**
  * Opens a payment app and notices when nothing happened. A launched app takes the page out of
- * view (visibilitychange / pagehide); if the page is still in front after LAUNCH_WAIT_MS, the app
- * did not open — not installed, or the link was refused — and `missed` names which button.
+ * view for a while; if the page is still in front after LAUNCH_WAIT_MS, or was hidden only for a
+ * blink (desktop Chrome hides it briefly while it tries an unknown scheme), the app did not open —
+ * not installed, or the link was refused — and `missed` names which button.
  */
 function useLaunchWatch() {
   const [missed, setMissed] = useState<string | null>(null);
+  const pending = useRef<{ key: string; hiddenAt: number | null } | null>(null);
   const timer = useRef<number | null>(null);
 
   useEffect(() => {
-    const left = () => {
+    const stopTimer = () => {
       if (timer.current) window.clearTimeout(timer.current);
       timer.current = null;
-      setMissed(null);
     };
     const onVisibility = () => {
-      if (document.visibilityState === "hidden") left();
+      const launch = pending.current;
+      if (!launch) return;
+      if (document.visibilityState === "hidden") {
+        launch.hiddenAt = Date.now();
+        stopTimer();
+        return;
+      }
+      pending.current = null;
+      const away = launch.hiddenAt === null ? 0 : Date.now() - launch.hiddenAt;
+      setMissed(away < BLINK_MS ? launch.key : null);
+    };
+    const onPageHide = () => {
+      pending.current = null;
+      stopTimer();
     };
     document.addEventListener("visibilitychange", onVisibility);
-    window.addEventListener("pagehide", left);
+    window.addEventListener("pagehide", onPageHide);
     return () => {
       document.removeEventListener("visibilitychange", onVisibility);
-      window.removeEventListener("pagehide", left);
-      if (timer.current) window.clearTimeout(timer.current);
+      window.removeEventListener("pagehide", onPageHide);
+      stopTimer();
     };
   }, []);
 
   const start = (key: string, href: string) => {
     setMissed(null);
+    pending.current = { key, hiddenAt: null };
     if (timer.current) window.clearTimeout(timer.current);
     timer.current = window.setTimeout(() => {
       timer.current = null;
-      if (document.visibilityState === "visible") setMissed(key);
+      const launch = pending.current;
+      if (launch?.key === key && launch.hiddenAt === null) {
+        pending.current = null;
+        setMissed(key);
+      }
     }, LAUNCH_WAIT_MS);
     window.location.assign(href);
   };
@@ -457,6 +486,22 @@ function NoUpiBody({ onClose }: { onClose: () => void }) {
       </div>
     </>
   );
+}
+
+/**
+ * Puts focus back on whatever opened the sheet (E5), so the landlord lands where they were with
+ * the row's own actions, Mark paid among them, in reach. Openers unmount the sheet to close it,
+ * and a <dialog> removed while open does not restore focus the way close() does.
+ */
+function useReturnFocus() {
+  // Read during the first render: the Modal's effect (a child, so it runs first) moves focus
+  // into the dialog before any effect here could see the opener.
+  const [opener] = useState(() => (typeof document === "undefined" ? null : document.activeElement));
+  useEffect(() => {
+    return () => {
+      if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
+    };
+  }, [opener]);
 }
 
 /** "upi-rent-feb-2026-flat-2a.png" from the note; "upi-payment.png" when the note is empty. */
