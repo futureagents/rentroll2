@@ -4,6 +4,15 @@ import { createSupabaseAdminClient } from "@/server/supabase/admin";
 
 import { botKey, issueStamp } from "./bot-check";
 import { CONFIRMATION, confirmationKey, issueConfirmation } from "./confirmation";
+import {
+  createSupabaseTenantPagesRepo,
+  myReceiptsWith,
+  myReportsWith,
+  myUnitWith,
+  type MyReceiptsView,
+  type MyReportsView,
+  type MyUnitView,
+} from "./pages";
 import { createSupabaseTenantRepo } from "./repo";
 import { findConfirmedRequestWith, onlyTenantLink, resolveWith, type ResolvedTenant } from "./resolve";
 import { submitReportWith } from "./submit";
@@ -15,6 +24,15 @@ export type { OwnRequestView, ResolvedTenant, TenantHeader, TenantRequestView, T
 import type { SubmitResult } from "@/lib/tenant/report";
 export type { SubmitResult };
 export { onlyTenantLink };
+export type {
+  MyReceiptView,
+  MyReceiptsView,
+  MyReportView,
+  MyReportsView,
+  MyUnitView,
+  ReportHistoryLine,
+  TenantStatusWord,
+} from "./pages";
 
 /** T-02 door confirmation cookie (confirmation.ts): name and life, for the action that sets it. */
 export const T02_CONFIRMATION_COOKIE = { name: CONFIRMATION.cookie, maxAgeSeconds: CONFIRMATION.maxAgeMs / 1000 };
@@ -32,6 +50,23 @@ export function resolveTenantToken(token: unknown): Promise<ResolvedTenant | nul
  */
 export function findOwnRequest(token: string, resolved: ResolvedTenant, requestNumber: unknown, confirmation: unknown) {
   return findConfirmedRequestWith({ repo: repo(), confirmationKey, now: Date.now }, token, resolved, requestNumber, confirmation);
+}
+
+const pagesRepo = () => createSupabaseTenantPagesRepo(createSupabaseAdminClient());
+
+/** T-03 (/u/:token/reports). `null` for a door token or any failure: render E1-10. */
+export async function loadMyReports(token: unknown): Promise<MyReportsView | null> {
+  return myReportsWith(pagesRepo(), await resolveTenantToken(token));
+}
+
+/** T-04 (/u/:token/unit). `null` for a door token or any failure: render E1-10. */
+export async function loadMyUnit(token: unknown): Promise<MyUnitView | null> {
+  return myUnitWith(pagesRepo(), await resolveTenantToken(token));
+}
+
+/** T-05 (/u/:token/receipts). `null` for a door token or any failure: render E1-10. */
+export async function loadMyReceipts(token: unknown): Promise<MyReceiptsView | null> {
+  return myReceiptsWith(pagesRepo(), await resolveTenantToken(token));
 }
 
 /** T-01 render stamp for the invisible bot check. */

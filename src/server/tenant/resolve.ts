@@ -32,7 +32,7 @@ const REQUEST_NUMBER_FORMAT = /^R-\d{4,9}$/;
 
 /** India has one offset and no daylight saving; a timestamp's Indian calendar date. */
 const IST_OFFSET_MS = 330 * 60_000;
-function indianDate(timestamp: string): string {
+export function indianDate(timestamp: string): string {
   const ms = Date.parse(timestamp);
   if (Number.isNaN(ms)) return "";
   return formatDate(new Date(ms + IST_OFFSET_MS).toISOString().slice(0, 10));

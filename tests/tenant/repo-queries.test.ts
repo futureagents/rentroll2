@@ -46,6 +46,10 @@ describe("every select names only D-30 columns or scoping ids", () => {
     ownRequest: "request",
     created: "request",
     countOnly: "request",
+    statusChanges: "audit_event",
+    latestUpdate: "message",
+    agreements: "agreement",
+    receipts: "payment",
   };
 
   for (const [name, select] of Object.entries(SELECT)) {

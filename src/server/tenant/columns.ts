@@ -63,4 +63,14 @@ export const SELECT = Object.freeze({
   created: `id, ${pick("request", "request_number")}`,
   /** Head-only counts (rate limit, photo count): no row content is returned. */
   countOnly: "id",
+  /** T03-TML-ITEM: `status_change` rows of one own request (D-30). */
+  statusChanges: pick("audit_event", "new_value", "created_at"),
+  /** T03-LST-REPORTS "the landlord's latest update": latest confirmed `tenant_update` body (D-17). */
+  latestUpdate: pick("message", "body"),
+  /** T04-SEC-UNIT agreement start and end dates. Never `rent` (T-04 "No rent figure"). */
+  agreements: pick("agreement", "starts_on", "ends_on"),
+  /** T05-LST-RECEIPTS: own recorded payments with their month (D-26). Never `amount_due`. */
+  receipts:
+    `${pick("payment", "amount", "receipt_number")}, ` +
+    `rent_entry:rent_entry!payment_rent_entry_id_tenancy_id_fkey!inner(${pick("rent_entry", "month")})`,
 });
