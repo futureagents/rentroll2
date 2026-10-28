@@ -234,7 +234,11 @@ export function buildDataset(runDate, src = data) {
     settings: src.settings,
     vendors: src.vendors,
     properties,
-    tenancies: tenancies.map(({ _src, ...t }) => t),
+    tenancies: tenancies.map((t) => {
+      const out = { ...t };
+      delete out._src;
+      return out;
+    }),
     rentEntries,
     reminders,
     requests,

@@ -35,9 +35,6 @@ const env = { ...readEnvFile(path.join(ROOT, '.env.local')), ...process.env };
 for (const key of ['NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY']) {
   if (!env[key]) fail(`${key} is not set in .env.local`);
 }
-const generatedPassword = !env.DEMO_LANDLORD_PASSWORD;
-const password = env.DEMO_LANDLORD_PASSWORD || randomBytes(12).toString('base64url');
-
 const db = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
@@ -45,6 +42,16 @@ const db = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_
 const runDate = todayInKolkata();
 const d = buildDataset(runDate);
 const L = d.landlord;
+
+// The password every lane signs in with must survive a re-seed, so a password from .env.local
+// always wins: DEMO_LANDLORD_PASSWORD, else DEV_LANDLORD_PASSWORD when DEV_LANDLORD_EMAIL is this
+// demo landlord. Only with neither set is a password generated (and printed) for this run.
+const passwordSource = env.DEMO_LANDLORD_PASSWORD
+  ? 'DEMO_LANDLORD_PASSWORD'
+  : env.DEV_LANDLORD_PASSWORD && env.DEV_LANDLORD_EMAIL?.toLowerCase() === L.email.toLowerCase()
+    ? 'DEV_LANDLORD_PASSWORD'
+    : null;
+const password = passwordSource ? env[passwordSource] : randomBytes(12).toString('base64url');
 
 console.log(`Seeding the demo landlord into ${new URL(env.NEXT_PUBLIC_SUPABASE_URL).host} for ${runDate} …`);
 
@@ -366,7 +373,7 @@ Done. ${d.properties.length} property · ${units.length} units (${units.filter((
 
 Sign in at http://localhost:3000/signin
   Email:    ${L.email}
-  Password: ${password}${generatedPassword ? '\n  (generated for this run; set DEMO_LANDLORD_PASSWORD in .env.local to keep one)' : ''}`);
+  Password: ${passwordSource ? `${passwordSource} from .env.local` : `${password}\n  (generated for this run; set DEMO_LANDLORD_PASSWORD in .env.local to keep one)`}`);
 
 // ── helpers ──────────────────────────────────────────────────────────────────────────────────
 
