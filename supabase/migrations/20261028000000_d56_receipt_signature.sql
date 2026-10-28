@@ -18,10 +18,13 @@ alter table public.document drop constraint document_logo_has_no_unit;
 alter table public.document
   add constraint document_logo_has_no_unit check (type::text in ('logo', 'signature') or unit_id is not null);
 
--- 3 · The landlord's current signature (L15-UPL-SIGNATURE †). Same shape as logo_document_id.
+-- 3 · The landlord's current signature (L15-UPL-SIGNATURE †). Composite, like settlement and
+-- deduction: the signature must be one of the landlord's own documents, even when the row is
+-- PATCHed directly under `landlord_update_own` (FK checks ignore RLS). Deleting the document
+-- clears the pointer only.
 alter table public.landlord add column signature_document_id uuid;
 alter table public.landlord
-  add constraint landlord_signature_document_fk foreign key (signature_document_id)
-  references public.document (id) on delete set null;
+  add constraint landlord_signature_document_fk foreign key (signature_document_id, id)
+  references public.document (id, landlord_id) on delete set null (signature_document_id);
 comment on column public.landlord.signature_document_id is
   'D-56. Prints above the signature line on landlord-printed P-01 and P-02 only. Never tenant-readable (D-30).';
