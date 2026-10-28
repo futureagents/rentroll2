@@ -665,6 +665,16 @@ Status mapping New → Received; the rest identical. A reopened request shows "R
 
 **Consequences.** Keeping it unmodified and in its own chunk is what keeps the LGPL-3.0 obligations limited to the library itself; a change that patches it, copies its source or merges it into app chunks re-opens this decision. Revisit if the app ever gets a licence audit. `heic2any` remains the drop-in fallback, isolated behind `decodeHeic()`. Source: PR #31 and the product owner, 2026-10-28.
 
+### D-56 · An uploaded signature on landlord-printed receipts and statements, never on the tenant's copy
+
+**Conflict.** P-01 lists "a signature line" and P-02 "two signature lines": blank lines signed by hand. The product owner wants a signature uploaded once in L-15 to print on receipts. P-01 is also opened by the tenant from T-05 (D-26), and D-30 already lets a tenant link read the logo. A signature image a tenant link can fetch is a clean copy of the landlord's signature, easy to put on an agreement or notice the landlord never signed.
+
+**Why not both.** A receipt either fetches the signature image or it does not; anything a tenant page can render, the tenant can save.
+
+**Decision.** L-15's Payment section gains `L15-UPL-SIGNATURE` † beside L15-UPL-LOGO: optional, one image (S-04, PNG or JPEG, a dark signature on a white or transparent background), with Remove. It is stored like the logo (D-15): a `document` row of a new type `signature` (no unit, like `logo`) in the private bucket, pointed to by a new nullable `landlord.signature_document_id`, served only by short-lived signed URLs from landlord server code. It prints above the signature line on **P-01 opened by the landlord** (`/print/receipt/:paymentId`, L04-BTN-RECEIPT, L-05's print icon) and on **P-02** above the landlord's line (the tenant's line stays blank). With no signature saved, the blank line prints as today. L-15's receipt preview shows it.
+
+**Consequences.** D-30 does **not** change: `signature_document_id` is not tenant-readable, `src/server/tenant` never selects it, and P-01 opened from T-05 always prints the blank line. The shared receipt component takes the signature URL only from the landlord route. Schema: `document_type` gains `signature`; the logo-only `unit_id is null` check widens to `type in ('logo', 'signature')`; `landlord.signature_document_id` with an FK on delete set null. Replacing a signature leaves the old file in storage, the same gap §9 parks for logos. The protected P-02 statement (D-15) is a stored render, so a statement settled before a signature was added keeps its blank line. Source: the product owner, 2026-10-28.
+
 ---
 
 ## 8 · Schema summary
