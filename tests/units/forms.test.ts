@@ -11,6 +11,8 @@ import {
   uploadProblem,
 } from "../../src/app/(landlord)/units/_lib/files";
 import {
+  defaultDepositDate,
+  depositDateWarning,
   hasErrors,
   validateNewUnit,
   validateTenancy,
@@ -120,6 +122,32 @@ describe("tenant form (L09-FRM-ADDTENANT, D-39)", () => {
   it("reports whether anything is wrong", () => {
     expect(hasErrors({})).toBe(false);
     expect(hasErrors({ name: "x" })).toBe(true);
+  });
+  it("refuses a deposit received after today, and allows today or earlier", () => {
+    const today = "2026-11-12";
+    expect(validateTenancy({ ...valid, depositReceivedOn: "2026-11-13" }, today).depositReceivedOn).toMatch(/future/);
+    expect(validateTenancy({ ...valid, depositReceivedOn: today }, today)).toEqual({});
+    expect(validateTenancy({ ...valid, depositReceivedOn: "2026-11-10" }, today)).toEqual({});
+    // A tenancy added ahead of its move-in with the deposit already in hand.
+    expect(validateTenancy({ ...valid, depositReceivedOn: "2026-11-01" }, "2026-11-05")).toEqual({});
+  });
+});
+
+describe("the deposit date (L09-FRM-ADDTENANT, D-23, D-39)", () => {
+  it("defaults to the move-in date, or today when the move-in is still ahead", () => {
+    expect(defaultDepositDate("2026-10-28", "2026-10-28")).toBe("2026-10-28");
+    expect(defaultDepositDate("2026-09-15", "2026-10-28")).toBe("2026-09-15");
+    expect(defaultDepositDate("2026-11-16", "2026-10-28")).toBe("2026-10-28");
+    expect(defaultDepositDate("", "2026-10-28")).toBe("");
+  });
+  it("says back a date two months or more from move-in, either side, without blocking it", () => {
+    expect(depositDateWarning("2026-10-26", "2026-10-28")).toBeNull();
+    expect(depositDateWarning("2026-09-01", "2026-10-28")).toBeNull();
+    expect(depositDateWarning("2026-08-29", "2026-10-28")).toBe("This is 2 months before the move-in date. Check the date is right.");
+    expect(depositDateWarning("2027-01-28", "2026-10-28")).toBe("This is 3 months after the move-in date. Check the date is right.");
+    // A wrong year is the typo this exists for.
+    expect(depositDateWarning("2025-10-26", "2026-10-28")).toBe("This is 12 months before the move-in date. Check the date is right.");
+    expect(depositDateWarning("", "2026-10-28")).toBeNull();
   });
 });
 

@@ -6,7 +6,7 @@
 // - L09-BTN-EDITUNIT † (D-39): number, type, rent, deposit.
 // - L09-FRM-ADDTENANT † (D-39): name, phone, email (optional), move-in date, agreement start and
 //   end, rent, rent due day, deposit paid, deposit received on. Rent, due day and deposit are required.
-import { addDays, isIsoDate, type IsoDate } from "./dates";
+import { addDays, daysBetween, isIsoDate, type IsoDate } from "./dates";
 
 export type FieldErrors<K extends string> = Partial<Record<K, string>>;
 
@@ -137,7 +137,38 @@ export type TenancyField = keyof TenancyFields;
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export function validateTenancy(input: TenancyFields): FieldErrors<TenancyField> {
+/** L09-FRM-ADDTENANT's deposit date helper: what the date means, including a deposit paid in parts. */
+export const DEPOSIT_DATE_HELPER = "The day the money reached you, often before move-in. Paid in parts? The day the last part came.";
+
+/** A deposit date this many days or more from the move-in date is more often a typo than a fact. */
+export const DEPOSIT_DATE_CHECK_DAYS = 60;
+
+/**
+ * The deposit date the form suggests: the move-in date, or today when the move-in is still ahead,
+ * since a deposit cannot have been received in the future.
+ */
+export function defaultDepositDate(movedInOn: IsoDate | "", today: IsoDate): IsoDate | "" {
+  if (!isIsoDate(movedInOn)) return "";
+  return movedInOn > today ? today : movedInOn;
+}
+
+/**
+ * A check that never blocks saving: a deposit date two months or more before or after the move-in
+ * date is allowed (a token paid early, a deposit paid late) but is said back so a typo is caught.
+ */
+export function depositDateWarning(depositReceivedOn: IsoDate | "", movedInOn: IsoDate | ""): string | null {
+  if (!isIsoDate(depositReceivedOn) || !isIsoDate(movedInOn)) return null;
+  const days = daysBetween(movedInOn, depositReceivedOn);
+  if (Math.abs(days) < DEPOSIT_DATE_CHECK_DAYS) return null;
+  const months = Math.floor(Math.abs(days) / 30);
+  return `This is ${months} months ${days < 0 ? "before" : "after"} the move-in date. Check the date is right.`;
+}
+
+/**
+ * `today` (Asia/Kolkata) is passed by both the form and the server; without it the future-date
+ * check is skipped.
+ */
+export function validateTenancy(input: TenancyFields, today?: IsoDate): FieldErrors<TenancyField> {
   const errors: FieldErrors<TenancyField> = {};
   const name = text(input.name);
   if (!name) errors.name = REQUIRED;
@@ -178,7 +209,9 @@ export function validateTenancy(input: TenancyFields): FieldErrors<TenancyField>
   else if (money(input.depositPaid) === null) errors.depositPaid = "Enter the deposit in whole rupees.";
 
   if (input.depositReceivedOn && !isIsoDate(input.depositReceivedOn)) errors.depositReceivedOn = "Choose a date.";
-  else if (!input.depositReceivedOn && (input.depositPaid ?? 0) > 0) {
+  else if (input.depositReceivedOn && today && input.depositReceivedOn > today) {
+    errors.depositReceivedOn = "This date is in the future. If the deposit has not come yet, tick Deposit not received yet.";
+  } else if (!input.depositReceivedOn && (input.depositPaid ?? 0) > 0) {
     errors.depositReceivedOn = "Enter the date the deposit was received.";
   }
   return errors;

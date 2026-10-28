@@ -1,7 +1,7 @@
 // The units lane's server writes against the landlord's RLS-scoped client: L09-FRM-ADDTENANT
 // (D-24, D-39), uploads (D-15, E4-7), L08-BTN-ADDUNIT (D-39), the door code (D-01), delete
 // (D-39), End tenancy (D-05, E4-2) and Record notice (D-13). Cross-landlord ids are Not found (E4-5).
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
@@ -60,6 +60,19 @@ const form = (overrides: Partial<AddTenancyInput> = {}): AddTenancyInput => ({
 });
 
 describe("addTenancy (L09-FRM-ADDTENANT, D-39)", () => {
+  // The form's dates are in November 2026; the deposit date may not be after today (Asia/Kolkata).
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-20T06:00:00Z"));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+  it("refuses a deposit date after today", async () => {
+    const fake = fakeSupabase(ME, seed());
+    const result = await addTenancy(fake.db, fake.admin, ME, UNIT, form({ depositReceivedOn: "2026-11-21" }));
+    expect(result).toMatchObject({ ok: false, fieldErrors: { depositReceivedOn: expect.stringMatching(/future/) } });
+  });
   it("creates the tenancy with its link, the first agreement, the first rent row and the photos", async () => {
     const fake = fakeSupabase(ME, seed());
     fake.objects.set(`${ME}/${PHOTO}`, { contentType: "image/jpeg", size: 400_000 });
