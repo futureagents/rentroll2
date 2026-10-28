@@ -655,6 +655,16 @@ Status mapping New → Received; the rest identical. A reopened request shows "R
 
 **Consequences.** Resolves: L-14 rupee OPEN, L-14 columns/filenames OPEN, L-14 FY OPEN, L-04 CSV OPEN, cross-cutting E1-04 OPEN, index.md phase-7 OPEN. L-08 "bulk export" exports the selected rows as `units.csv`.
 
+### D-55 · `heic-to` (LGPL-3.0) decodes HEIC photos in S-04
+
+**Conflict.** S-04 must accept iPhone photos, which arrive as HEIC, and prepare them on the device before upload (P3.3). Chrome, Firefox and Android cannot decode HEIC natively, so the uploader needs a library. The maintained one, `heic-to` 1.6.6, is licensed LGPL-3.0. The MIT alternative, `heic2any`, has been unmaintained since 2020 and fails on some newer iPhone HEICs, which are the only reason the library is there.
+
+**Why not both.** —
+
+**Decision.** `heic-to` stays (PR #31). It is loaded **unmodified**, as a **separate chunk**, through a dynamic `import("heic-to/next")` inside `decodeHeic()` in `src/components/upload/prepare.ts`, only when a HEIC file is picked. Nothing else imports it, and it is never patched, vendored or bundled into the main app code.
+
+**Consequences.** Keeping it unmodified and in its own chunk is what keeps the LGPL-3.0 obligations limited to the library itself; a change that patches it, copies its source or merges it into app chunks re-opens this decision. Revisit if the app ever gets a licence audit. `heic2any` remains the drop-in fallback, isolated behind `decodeHeic()`. Source: PR #31 and the product owner, 2026-10-28.
+
 ---
 
 ## 8 · Schema summary
