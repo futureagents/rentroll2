@@ -15,7 +15,28 @@ const REQUIRED = "This is needed to continue.";
 const MAX_TEXT = 120;
 
 /** `unit.type` is free text with suggestions (D-39). */
-export const UNIT_TYPE_SUGGESTIONS = ["1RK", "1BHK", "2BHK", "3BHK", "PG bed"] as const;
+export const UNIT_TYPE_SUGGESTIONS = [
+  "1RK",
+  "Studio",
+  "1BHK",
+  "1.5BHK",
+  "2BHK",
+  "2.5BHK",
+  "3BHK",
+  "4BHK",
+  "5BHK",
+  "Duplex",
+  "Penthouse",
+  "Row house",
+  "Independent house",
+  "Villa",
+  "Room",
+  "PG bed",
+  "Shop",
+  "Office",
+  "Godown",
+  "Parking",
+] as const;
 
 export function sameUnitNumber(a: string, b: string): boolean {
   return a.trim().toLowerCase() === b.trim().toLowerCase();
