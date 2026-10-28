@@ -92,6 +92,19 @@ describe("checkBoundaries", () => {
     expect(violations.every((v) => /src\/server\/composer/.test(v.rule))).toBe(true);
   });
 
+  it("flags tenant code importing src/server/settings, but allows landlord code (D-30, D-56)", () => {
+    const violations = violationsFor({
+      "src/app/(tenant)/u/[token]/page.tsx": 'import { imagePreviewUrl } from "@/server/settings/images";\n',
+      "src/server/tenant/pages.ts": 'import "server-only";\nimport { readSettings } from "../settings";\n',
+      "src/app/(landlord)/settings/page.tsx": 'import { readSettings } from "@/server/settings";\n',
+    });
+    expect(violations.map((v) => v.file).sort()).toEqual([
+      "src/app/(tenant)/u/[token]/page.tsx",
+      "src/server/tenant/pages.ts",
+    ]);
+    expect(violations.every((v) => /src\/server\/settings/.test(v.rule))).toBe(true);
+  });
+
   it("ignores server components importing server code", () => {
     const violations = violationsFor({
       "src/app/(landlord)/page.tsx": 'import "@/server/landlord";\nimport "@/server/supabase/admin";\n',
