@@ -777,6 +777,10 @@ These do not affect schema, security, tenant/landlord behaviour, navigation, pay
 - product.md §18: capture points for SM-1…SM-5 beyond what D-29 adds.
 - L-02: showing links/QR at setup (not shown; see D-39).
 
+**Before any real tenant uses the app (not blocking the teaching build)**
+- `src/server/tenant/pages.ts` (T-03, T-04, T-05 reads, PR #35) needs unit tests: the D-30 column allow-list, the D-26 receipt-amount exception, and E1-10 for every failure. PR #35 was checked by hand against real response bodies, with no unit tests; it is a G-2 boundary, so tests come first.
+- L-15 logo replacement (PR #36) leaves the old logo file in the `documents` bucket. Needs a cleanup job that removes logo files (and their `document` rows) that no `landlord.logo_document_id` points at. Parked.
+
 **UI, wording and layout only**
 - index.md: cover counts; sidebar reachability; build-phase ordering (phases 3–5 interleave as the OPEN describes; the tracker's claim is simply wrong).
 - foundations: `muted` as a chip colour; `body` name clash; typeface; display token on L13-SEC-BALANCE; fixed sizes vs the spacing scale; one-primary rule on L-13/L-05; text-area cap on S01-FLD-MESSAGE; 2-second copy toast; empty-state "None" actions; filters on L-13/L-14 (L-08: D-49); "key fields" per table; panel alongside vs over.
