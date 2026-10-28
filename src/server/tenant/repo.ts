@@ -77,14 +77,14 @@ class TenantQueryError extends Error {
   }
 }
 
-function check<T extends { error: { code?: string } | null }>(step: string, result: T): T {
+export function check<T extends { error: { code?: string } | null }>(step: string, result: T): T {
   if (result.error) throw new TenantQueryError(step, result.error.code);
   return result;
 }
 
-const str = (value: unknown): string => (typeof value === "string" ? value : "");
+export const str = (value: unknown): string => (typeof value === "string" ? value : "");
 const strOrNull = (value: unknown): string | null => (typeof value === "string" && value ? value : null);
-const one = (value: unknown): Record<string, unknown> | null =>
+export const one = (value: unknown): Record<string, unknown> | null =>
   value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
 
 function place(unitNumber: unknown, property: unknown, landlord: unknown): PlaceFields | null {
