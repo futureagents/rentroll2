@@ -4,7 +4,7 @@ import { randomBytes } from "node:crypto";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { isIsoDate, type IsoDate } from "@/app/(landlord)/units/_lib/dates";
+import { isIsoDate, kolkataToday, type IsoDate } from "@/app/(landlord)/units/_lib/dates";
 import { isUuid, type TenancyDocumentType } from "@/app/(landlord)/units/_lib/files";
 import {
   duplicateUnitMessage,
@@ -214,7 +214,7 @@ export async function addTenancy(
   input: AddTenancyInput,
 ): Promise<Result<{ tenancyId: string }, TenancyField>> {
   if (!isUuid(unitId)) return { ok: false, error: NOT_FOUND };
-  const fieldErrors = validateTenancy(input);
+  const fieldErrors = validateTenancy(input, kolkataToday(new Date()));
   if (hasErrors(fieldErrors)) return { ok: false, error: "Check the highlighted fields.", fieldErrors };
 
   const photos = input.photos.map((p) => ({ ...p, type: "move_in_photo" as const }));

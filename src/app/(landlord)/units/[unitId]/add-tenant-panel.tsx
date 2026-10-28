@@ -3,8 +3,9 @@
 //
 // Step 1 · Tenant and agreement: name, phone, email (optional), move-in date, agreement start
 // (defaults to move-in) and end, rent (defaults to the unit's rent), rent due day (defaults to the
-// 1st, D-09), deposit paid (defaults to the unit's deposit) and deposit received on, or "Deposit
-// not received yet" (paid 0, no date), ID proof.
+// 1st, D-09), deposit paid (defaults to the unit's deposit) and deposit received on (follows the
+// move-in date until set, never later than today; a date two months or more from move-in is said
+// back as a check, not an error), or "Deposit not received yet" (paid 0, no date), ID proof.
 // Step 2 · Condition photos (S-04, up to 10). Skippable, with the consequence stated plainly
 // (proposed decision amending D-39): with no photos the save button itself says so.
 //
@@ -19,7 +20,17 @@ import { Button, Checkbox, DateField, Dropdown, MoneyField, PhoneField, PhotoUpl
 import { addTenancyAction } from "../actions";
 import { useUploads } from "../_components/use-uploads";
 import { DOCUMENT_MIME, MAX_LANDLORD_PHOTOS, moveInPhotoAlt } from "../_lib/files";
-import { hasErrors, NO_PHOTOS_CONSEQUENCE, validateTenancy, type FieldErrors, type TenancyField, type TenancyFields } from "../_lib/forms";
+import {
+  defaultDepositDate,
+  DEPOSIT_DATE_HELPER,
+  depositDateWarning,
+  hasErrors,
+  NO_PHOTOS_CONSEQUENCE,
+  validateTenancy,
+  type FieldErrors,
+  type TenancyField,
+  type TenancyFields,
+} from "../_lib/forms";
 import type { UnitView } from "./view";
 
 const DUE_DAYS = Array.from({ length: 31 }, (_, i) => ({ value: String(i + 1), label: String(i + 1) }));
@@ -48,7 +59,7 @@ function initialFields(view: UnitView): TenancyFields {
     rent: view.askingRent,
     rentDueDay: 1,
     depositPaid: view.askingDeposit,
-    depositReceivedOn: "",
+    depositReceivedOn: defaultDepositDate(view.today, view.today),
   };
 }
 
@@ -63,6 +74,7 @@ function AddTenantForm({ view, onClose }: { view: UnitView; onClose: () => void 
   const [step, setStep] = useState<1 | 2>(1);
   const [fields, setFields] = useState<TenancyFields>(() => initialFields(view));
   const [startTouched, setStartTouched] = useState(false);
+  const [depositDateTouched, setDepositDateTouched] = useState(false);
   // A tenant may move in before paying the deposit: saved as deposit paid 0 with no date (D-23).
   const [depositPending, setDepositPending] = useState(false);
   const [errors, setErrors] = useState<FieldErrors<TenancyField>>({});
@@ -81,12 +93,16 @@ function AddTenantForm({ view, onClose }: { view: UnitView; onClose: () => void 
       const next = { ...current, [key]: value };
       // Agreement start follows the move-in date until the landlord sets it (D-39 default).
       if (key === "movedInOn" && !startTouched) next.startsOn = value as TenancyFields["startsOn"];
+      // So does the deposit date, capped at today.
+      if (key === "movedInOn" && !depositDateTouched) {
+        next.depositReceivedOn = defaultDepositDate(value as TenancyFields["movedInOn"], view.today);
+      }
       return next;
     });
   };
 
   const next = () => {
-    const all = validateTenancy(fields);
+    const all = validateTenancy(fields, view.today);
     const stepErrors = Object.fromEntries(STEP_ONE_FIELDS.filter((f) => all[f]).map((f) => [f, all[f]])) as FieldErrors<TenancyField>;
     setErrors(stepErrors);
     if (hasErrors(stepErrors)) {
@@ -133,6 +149,7 @@ function AddTenantForm({ view, onClose }: { view: UnitView; onClose: () => void 
   };
 
   const photoCount = photos.items.length;
+  const depositWarning = depositDateWarning(fields.depositReceivedOn, fields.movedInOn);
 
   const footer =
     step === 1 ? (
@@ -214,22 +231,34 @@ function AddTenantForm({ view, onClose }: { view: UnitView; onClose: () => void 
             onChange={(checked) => {
               setDepositPending(checked);
               set("depositPaid", checked ? 0 : view.askingDeposit);
-              set("depositReceivedOn", "");
+              setDepositDateTouched(false);
+              set("depositReceivedOn", checked ? "" : defaultDepositDate(fields.movedInOn, view.today));
               setErrors((current) => ({ ...current, depositPaid: undefined, depositReceivedOn: undefined }));
             }}
             helper={depositPending ? "The tenancy is saved with no deposit received." : undefined}
           />
           {!depositPending && (
-            <div className="grid gap-4 sm:grid-cols-2">
-              <MoneyField label="Deposit paid" required value={fields.depositPaid} onChange={(v) => set("depositPaid", v)} error={errors.depositPaid} />
-              <DateField
-                label="Deposit received on"
-                value={fields.depositReceivedOn}
-                onChange={(v) => set("depositReceivedOn", v)}
-                error={errors.depositReceivedOn}
-                required={(fields.depositPaid ?? 0) > 0}
-              />
-            </div>
+            <>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <MoneyField label="Deposit paid" required value={fields.depositPaid} onChange={(v) => set("depositPaid", v)} error={errors.depositPaid} />
+                <DateField
+                  label="Deposit received on"
+                  value={fields.depositReceivedOn}
+                  onChange={(v) => {
+                    setDepositDateTouched(true);
+                    set("depositReceivedOn", v);
+                  }}
+                  error={errors.depositReceivedOn}
+                  helper={DEPOSIT_DATE_HELPER}
+                  required={(fields.depositPaid ?? 0) > 0}
+                />
+              </div>
+              {depositWarning && !errors.depositReceivedOn && (
+                <p role="status" className="rounded-sm bg-warning/12 px-3 py-2 text-small text-ink">
+                  {depositWarning}
+                </p>
+              )}
+            </>
           )}
           <IdProofField uploads={idProof} />
         </div>
