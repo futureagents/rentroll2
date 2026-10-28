@@ -80,10 +80,14 @@ interface StatusChange {
 
 export interface TenantPagesRepo {
   listRequests(scope: TenantScope): Promise<OwnRequest[]>;
-  /** `status_change` rows of one request already scoped to the tenancy, oldest first. */
-  listStatusChanges(scope: TenantScope, requestId: string): Promise<StatusChange[]>;
-  findLatestUpdate(scope: TenantScope, requestId: string): Promise<string | null>;
-  listAgreements(scope: TenantScope): Promise<{ startsOn: string; endsOn: string }[]>;
+  // The two reads below are scoped by the request's id, so they take only a request that
+  // listRequests(scope) returned (filtered by landlord and tenancy), never an id from elsewhere.
+  /** `status_change` rows of one own request, oldest first. */
+  listStatusChanges(scope: TenantScope, request: OwnRequest): Promise<StatusChange[]>;
+  /** The latest confirmed `tenant_update` body of one own request, as sent. */
+  findLatestUpdate(scope: TenantScope, request: OwnRequest): Promise<string | null>;
+  /** D-30 "current agreement" only: the latest one begun by `today`, else the next to begin. */
+  findCurrentAgreement(scope: TenantScope, today: string): Promise<{ startsOn: string; endsOn: string } | null>;
   listReceipts(scope: TenantScope): Promise<{ amount: number; receiptNumber: string; month: string }[]>;
 }
 
@@ -123,7 +127,7 @@ export function createSupabaseTenantPagesRepo(client: SupabaseClient): TenantPag
       );
     },
 
-    async listStatusChanges(scope, requestId) {
+    async listStatusChanges(scope, request) {
       const { data } = check(
         "report history",
         await client
@@ -131,7 +135,7 @@ export function createSupabaseTenantPagesRepo(client: SupabaseClient): TenantPag
           .select(SELECT.statusChanges)
           .eq("landlord_id", scope.landlordId)
           .eq("entity_type", "request")
-          .eq("entity_id", requestId)
+          .eq("entity_id", request.id)
           .eq("kind", "status_change") // D-30: the only kind tenant code reads
           .order("created_at", { ascending: true }),
       );
@@ -143,36 +147,46 @@ export function createSupabaseTenantPagesRepo(client: SupabaseClient): TenantPag
       });
     },
 
-    async findLatestUpdate(scope, requestId) {
+    async findLatestUpdate(scope, request) {
       const { data } = check(
         "latest update",
         await client
           .from("message")
           .select(SELECT.latestUpdate)
           .eq("landlord_id", scope.landlordId)
-          .eq("request_id", requestId)
+          .eq("request_id", request.id)
           .eq("kind", "tenant_update") // D-17: never a vendor dispatch, note or rent message
           .order("confirmed_at", { ascending: false })
           .limit(1)
           .maybeSingle(),
       );
-      const body = str(one(data)?.body).trim();
-      return body || null;
+      // Shown exactly as the landlord sent it (D-17); only an empty body counts as no update.
+      const body = str(one(data)?.body);
+      return body.trim() ? body : null;
     },
 
-    async listAgreements(scope) {
-      const { data } = check(
-        "agreement dates",
-        await client
+    // D-08: a tenancy's agreements never overlap, so the latest one begun by today is the one in
+    // force (or, past its end, the last one). Only before the first has begun is the next one read.
+    async findCurrentAgreement(scope, today) {
+      const pickOne = async (begun: boolean) => {
+        const query = client
           .from("agreement")
           .select(SELECT.agreements)
           .eq("landlord_id", scope.landlordId)
-          .eq("tenancy_id", scope.tenancyId)
-          .order("starts_on", { ascending: true }),
-      );
-      return rows(data).flatMap((row) =>
-        str(row.starts_on) && str(row.ends_on) ? [{ startsOn: str(row.starts_on), endsOn: str(row.ends_on) }] : [],
-      );
+          .eq("tenancy_id", scope.tenancyId);
+        const { data } = check(
+          "agreement dates",
+          await (begun
+            ? query.lte("starts_on", today).order("starts_on", { ascending: false })
+            : query.gt("starts_on", today).order("starts_on", { ascending: true })
+          )
+            .limit(1)
+            .maybeSingle(),
+        );
+        const row = one(data);
+        return row && str(row.starts_on) && str(row.ends_on) ? { startsOn: str(row.starts_on), endsOn: str(row.ends_on) } : null;
+      };
+      return (await pickOne(true)) ?? (await pickOne(false));
     },
 
     async listReceipts(scope) {
@@ -201,17 +215,6 @@ function indianToday(now: number): string {
   return new Date(now + 330 * 60_000).toISOString().slice(0, 10);
 }
 
-/** D-08: a tenancy's agreements never overlap. Current = the one covering today, else the latest begun, else the next. */
-export function currentAgreement<T extends { startsOn: string; endsOn: string }>(agreements: T[], today: string): T | null {
-  const sorted = [...agreements].sort((a, b) => a.startsOn.localeCompare(b.startsOn));
-  return (
-    sorted.find((a) => a.startsOn <= today && today <= a.endsOn) ??
-    sorted.filter((a) => a.startsOn <= today).at(-1) ??
-    sorted[0] ??
-    null
-  );
-}
-
 function historyOf(request: OwnRequest, changes: StatusChange[]): { status: TenantStatusWord; history: ReportHistoryLine[] } {
   const history: ReportHistoryLine[] = [{ word: "Reported", on: indianDate(request.createdAt) }];
   for (const change of changes) {
@@ -235,8 +238,8 @@ export async function myReportsWith(repo: TenantPagesRepo, resolved: ResolvedTen
         .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
         .map(async (request): Promise<MyReportView> => {
           const [changes, latestUpdate] = await Promise.all([
-            repo.listStatusChanges(own.scope, request.id),
-            repo.findLatestUpdate(own.scope, request.id),
+            repo.listStatusChanges(own.scope, request),
+            repo.findLatestUpdate(own.scope, request),
           ]);
           return {
             requestNumber: request.requestNumber,
@@ -262,7 +265,7 @@ export async function myUnitWith(
   const own = onlyTenantLink(resolved);
   if (!own) return null;
   try {
-    const agreement = currentAgreement(await repo.listAgreements(own.scope), indianToday(now()));
+    const agreement = await repo.findCurrentAgreement(own.scope, indianToday(now()));
     return {
       header: own.view.header,
       agreement: agreement ? { startsOn: formatDate(agreement.startsOn), endsOn: formatDate(agreement.endsOn) } : null,
