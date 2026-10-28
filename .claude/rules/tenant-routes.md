@@ -44,9 +44,26 @@ tenant code, even if it is not rendered.
 - `request.cost`, `no_cost`, `tenant_liable`, vendor, internal notes, urgency, assistant suggestions
 - any other unit, tenancy, tenant, request, payment or landlord record
 - voided payments, internal ids (uuids), error codes
-Sole exception: amounts of the tenant's own recorded payments on T-05 and on P-01 opened from T-05.
-The P-01 payment QR carries no amount.
+Sole exception: amounts of the tenant's own recorded payments on T-05 and on P-01 opened from T-05
+(see "Money a tenant may see" below). The P-01 payment QR carries no amount.
 Cost-privacy exception (D-17, D-27, D-37), not a bug: a tenant-facing screen never renders a cost from a stored field; a cost may leave the system only inside a message the landlord composed and sent (e.g. the L07-CHK-TENANTLIABLE payment request; T-03 echoing the landlord-sent `tenant_update` body verbatim is that same message, D-17 — never scrub or filter it); tenant update drafts are built from status and category only — never cost, vendor, or vendor rate.
+
+## Money a tenant may see — the one exception, and it is not a leak (G-2, D-26)
+A tenant sees their own payments and no other money. A receipt without its amount is not a
+receipt, so these two surfaces show rupee amounts on purpose. Do not flag them in review and do not
+remove them:
+- **T-05** `/u/:token/receipts` — the amount of each **recorded** payment of the token's own tenancy
+  (voided payments excluded).
+- **P-01 opened from T-05** `/u/:token/receipts/:receiptNumber/print` — that one payment's amount
+  in figures and words. Its payment QR carries no amount.
+
+That is the whole exception. It covers money the tenant paid, not money they owe or anything else:
+- never their own `amount_due`, balance, "pending" figure, other months' dues, deposit, or agreement
+  rent (T-04 shows agreement dates and no rent figure);
+- never another unit, never another tenant;
+- never a repair cost (the landlord-sent message case above is D-27, not this exception);
+- never a landlord business figure (collections, totals, expenses, vendor rates).
+No other tenant screen shows an amount. A new tenant surface with money needs its own D-nn first.
 
 ## May write — one thing (D-29, D-31, T-01)
 - Create a `request` with `reported_via = tenant_link`, attached to the token's current tenancy, up
