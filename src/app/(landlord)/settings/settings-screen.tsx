@@ -3,7 +3,7 @@
 // unsaved edits (for the leave warning) and whether the browser is offline (E1-08 banner).
 import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
 
-import { SECTION_NAMES, type LandlordSettings, type SectionId } from "@/lib/settings";
+import { SECTION_NAMES, type ImageKind, type LandlordSettings, type SectionId } from "@/lib/settings";
 
 import { ContactsSection } from "./contacts-section";
 import { PaymentSection } from "./payment-section";
@@ -24,11 +24,12 @@ function subscribeOnline(onChange: () => void) {
 
 export function SettingsScreen({
   settings,
-  logoUrl,
+  imageUrls,
   baseUrl,
 }: {
   settings: LandlordSettings;
-  logoUrl: string | null;
+  /** Short-lived URLs of the saved logo and signature (D-15, D-56). */
+  imageUrls: Record<ImageKind, string | null>;
   baseUrl: { configured: string | null; effective: string | null };
 }) {
   const [dirty, setDirty] = useState<Record<SectionId, boolean>>({ payment: false, reminders: false, contacts: false });
@@ -63,7 +64,7 @@ export function SettingsScreen({
         </nav>
 
         <div className="flex max-w-3xl flex-col gap-6">
-          <PaymentSection settings={settings} logoUrl={logoUrl} onDirtyChange={onPayment} />
+          <PaymentSection settings={settings} imageUrls={imageUrls} onDirtyChange={onPayment} />
           <RemindersSection settings={settings} onDirtyChange={onReminders} />
           <ContactsSection settings={settings} onDirtyChange={onContacts} />
           <SystemSection baseUrl={baseUrl} />

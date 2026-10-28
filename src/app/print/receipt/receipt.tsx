@@ -8,6 +8,10 @@
 // `/u/:token/receipts/:receiptNumber/print` — render this one template (D-03, D-26). It takes
 // props and never queries: the tenant route hands it D-30 columns only. Every optional element
 // (logo, QR, PAN, reference) is omitted when absent, never shown as a placeholder (D-26).
+//
+// D-56: the landlord's uploaded signature prints above the signature line only when the landlord
+// route passes `signatureUrl`. The tenant route never passes it (D-30 has no signature column),
+// so the tenant's copy always prints the blank line.
 import { formatDate, formatMonth, formatRupees, formatRupeesInWords } from "@/lib/format";
 import { buildUpiLink } from "@/lib/upi";
 
@@ -44,6 +48,12 @@ export interface ReceiptProps {
   /** `payment.reference`, optional. */
   reference?: string | null;
   landlord: ReceiptLandlord;
+  /**
+   * D-56: short-lived signed URL of the landlord's signature (L15-UPL-SIGNATURE †). Passed only by
+   * the landlord route `/print/receipt/:paymentId`; kept out of `ReceiptLandlord` so a tenant
+   * route building the landlord fields from D-30 columns cannot carry it. Absent → blank line.
+   */
+  signatureUrl?: string | null;
   /** Trigger the print dialog on load (the P-01 rule). Default true. */
   autoPrint?: boolean;
 }
@@ -58,6 +68,7 @@ export function Receipt({
   receivedOn,
   reference,
   landlord,
+  signatureUrl,
   autoPrint = true,
 }: ReceiptProps) {
   const upiId = landlord.upiId?.trim();
@@ -119,7 +130,17 @@ export function Receipt({
             <div />
           )}
           <div className="flex w-56 flex-col gap-2">
-            <div className="h-12 border-b border-ink" aria-hidden="true" />
+            <div className="flex h-12 items-end border-b border-ink">
+              {signatureUrl ? (
+                // Plain <img>: the landlord's upload, printed as-is above the line (D-56).
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={signatureUrl}
+                  alt={`Signature of ${landlord.receiptName}`}
+                  className="max-h-12 max-w-full object-contain object-left-bottom"
+                />
+              ) : null}
+            </div>
             <p className="text-small text-muted">Signature · {landlord.receiptName}</p>
           </div>
         </footer>

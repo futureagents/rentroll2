@@ -1,24 +1,26 @@
 "use client";
-// L15-SEC-PAYMENT †: L15-FLD-UPI (with "Test with ₹1" †), L15-FLD-RECEIPTNAME and L15-UPL-LOGO.
-// The logo goes up through S-04 (one photo, D-15) as soon as it is picked; it is attached to the
-// landlord only when this section is saved, replacing the previous one. The receipt preview
-// follows what is typed and picked, so the landlord sees the printed result before saving.
-import { useEffect, useMemo, useRef, useState } from "react";
+// L15-SEC-PAYMENT †: L15-FLD-UPI (with "Test with ₹1" †), L15-FLD-RECEIPTNAME, L15-UPL-LOGO and
+// L15-UPL-SIGNATURE † (D-56). Each image goes up through S-04 (one photo, D-15) as soon as it is
+// picked and is attached only when this section is saved, replacing the previous one. The receipt
+// preview follows what is typed and picked, so the landlord sees the printed result before saving.
+import { useEffect, useRef, useState } from "react";
 
 import { Button, TextField } from "@/components/ui";
-import { PhotoUploader, UPLOAD_MESSAGES, signedUrlTransport, useUploadQueue } from "@/components/upload";
+import { UPLOAD_MESSAGES } from "@/components/upload";
 import {
   CHECK_FIELDS,
   displayReceiptName,
   parsePayment,
   receiptNameProblem,
   upiProblem,
+  type ImageKind,
   type LandlordSettings,
-  type LogoChange,
   type PaymentField,
+  type PaymentInput,
 } from "@/lib/settings";
 
-import { savePaymentAction, signLogoUploadAction } from "./actions";
+import { savePaymentAction } from "./actions";
+import { ImageSlotField, useImageSlot } from "./_components/image-slot";
 import { ReceiptPreview } from "./_components/receipt-preview";
 import { SettingsSection, useSectionSave } from "./_components/section";
 import { UpiTestSheet } from "./_components/upi-test-sheet";
@@ -30,12 +32,12 @@ interface Values {
 
 export function PaymentSection({
   settings,
-  logoUrl,
+  imageUrls,
   onDirtyChange,
 }: {
   settings: LandlordSettings;
-  /** Short-lived URL of the saved logo; refreshed by the page after every save. */
-  logoUrl: string | null;
+  /** Short-lived URLs of the saved logo and signature; refreshed by the page after every save. */
+  imageUrls: Record<ImageKind, string | null>;
   onDirtyChange: (dirty: boolean) => void;
 }) {
   const [baseline, setBaseline] = useState<Values>(() => ({
@@ -45,34 +47,27 @@ export function PaymentSection({
   const [values, setValues] = useState(baseline);
   /** What the last save sent: edits typed while it was in flight stay unsaved. */
   const submitted = useRef(baseline);
-  const [removeLogo, setRemoveLogo] = useState(false);
   const [testing, setTesting] = useState(false);
-  const transport = useMemo(() => signedUrlTransport(signLogoUploadAction), []);
-  const { queue, photos, busy, failed } = useUploadQueue({ max: 1, transport, altFor: () => "Your logo" });
-  const picked = photos[0] ?? null;
+  const logo = useImageSlot("logo", imageUrls.logo, "Your logo");
+  const signature = useImageSlot("signature", imageUrls.signature, "Your signature");
 
-  const logoChange: LogoChange =
-    picked
-      ? { action: "replace", documentId: picked.ref ?? "", fileName: "logo" }
-      : removeLogo
-        ? { action: "remove" }
-        : { action: "keep" };
   const dirty =
     values.upiId.trim() !== baseline.upiId.trim() ||
     values.receiptName.trim() !== baseline.receiptName.trim() ||
-    logoChange.action !== "keep";
+    logo.change.action !== "keep" ||
+    signature.change.action !== "keep";
   useEffect(() => onDirtyChange(dirty), [dirty, onDirtyChange]);
 
   const { status, fieldErrors, save, edited } = useSectionSave<PaymentField>({
     save: async () => {
-      // S-04: "Submitting while an upload is in progress waits for it."
-      const settled = await queue.whenSettled();
-      const photo = settled[0];
-      if (photo && photo.status !== "done") {
-        return { ok: false, error: CHECK_FIELDS, fieldErrors: { logo: photo.error ?? UPLOAD_MESSAGES.failed } };
+      const [logoNow, signatureNow] = await Promise.all([logo.settle(), signature.settle()]);
+      if (!logoNow.ok || !signatureNow.ok) {
+        const fieldErrors: Partial<Record<PaymentField, string>> = {};
+        if (!logoNow.ok) fieldErrors.logo = logoNow.error;
+        if (!signatureNow.ok) fieldErrors.signature = signatureNow.error;
+        return { ok: false, error: CHECK_FIELDS, fieldErrors };
       }
-      const logo: LogoChange = photo?.ref ? { action: "replace", documentId: photo.ref, fileName: "logo" } : logoChange;
-      const input = { ...values, logo };
+      const input: PaymentInput = { ...values, logo: logoNow.change, signature: signatureNow.change };
       const parsed = parsePayment(input);
       if (!parsed.ok) return { ok: false, error: CHECK_FIELDS, fieldErrors: parsed.fieldErrors };
       submitted.current = values;
@@ -80,10 +75,8 @@ export function PaymentSection({
     },
     onSaved: () => {
       setBaseline(submitted.current);
-      setRemoveLogo(false);
-      // The page has re-rendered with a signed URL for the saved logo (revalidatePath), so the
-      // local copy can go and the uploader is free for the next replacement.
-      queue.dispose();
+      logo.saved();
+      signature.saved();
     },
   });
 
@@ -95,15 +88,14 @@ export function PaymentSection({
   const upi = values.upiId.trim();
   const upiReady = upi !== "" && upiProblem(upi) === null;
   const receiptName = displayReceiptName({ receiptName: values.receiptName, name: settings.name }) || "Your name";
-  const previewLogo = picked?.previewUrl ?? (removeLogo ? null : logoUrl);
-  const hasSavedLogo = Boolean(logoUrl) && !removeLogo;
+  const uploading = logo.busy || signature.busy;
 
   return (
     <SettingsSection
       id="payment"
       title="Payment"
       description="What tenants see on payment links, QR codes and printed receipts."
-      status={busy && status.kind === "saving" ? { kind: "saving", slow: false, note: UPLOAD_MESSAGES.uploading } : status}
+      status={uploading && status.kind === "saving" ? { kind: "saving", slow: false, note: UPLOAD_MESSAGES.uploading } : status}
       dirty={dirty}
       savedMessage="Saved. New payment links and receipts use these details."
       saveLabel="Save payment details"
@@ -155,38 +147,12 @@ export function PaymentSection({
         helper={`Printed on receipts and settlement statements. Leave empty to use your name, ${settings.name}.`}
       />
 
-      <div className="flex flex-col gap-3">
-        <PhotoUploader
-          queue={queue}
-          label="Logo (optional)"
-          helper={
-            hasSavedLogo
-              ? "Pick a new image to replace your logo. A square or wide logo on a white background prints best."
-              : "A square or wide logo on a white background prints best."
-          }
-        />
-        {fieldErrors.logo && (
-          <p role="alert" className="text-small text-danger">
-            {fieldErrors.logo}
-          </p>
-        )}
-        {hasSavedLogo && !picked && (
-          <div>
-            <Button variant="quiet" icon="trash" onClick={() => setRemoveLogo(true)}>
-              Remove logo
-            </Button>
-          </div>
-        )}
-        {removeLogo && !picked && (
-          <p className="text-small text-muted">
-            The logo comes off your receipts when you save.{" "}
-            <button type="button" className="text-primary underline underline-offset-2" onClick={() => setRemoveLogo(false)}>
-              Keep it
-            </button>
-          </p>
-        )}
-        {failed.length > 0 && <p className="text-small text-muted">Retry the logo, or remove it to save the rest.</p>}
-        <ReceiptPreview receiptName={receiptName} logoUrl={previewLogo} />
+      <div className="flex flex-col gap-4">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <ImageSlotField slot={logo} error={fieldErrors.logo} />
+          <ImageSlotField slot={signature} error={fieldErrors.signature} />
+        </div>
+        <ReceiptPreview receiptName={receiptName} logoUrl={logo.previewUrl} signatureUrl={signature.previewUrl} />
       </div>
 
       {testing && upiReady && (

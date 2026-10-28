@@ -3,6 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { ReceiptProps } from "@/app/print/receipt/receipt";
+import { imageReadUrl } from "@/server/settings/images";
 import { createSupabaseAdminClient } from "@/server/supabase/admin";
 
 // P-01 for the landlord (`/print/receipt/:paymentId`, D-03). Reads through the landlord's
@@ -31,7 +32,7 @@ export async function receiptForPayment(db: SupabaseClient, paymentId: string): 
     db.from("tenancy").select("name").eq("id", payment.tenancy_id).maybeSingle(),
     db
       .from("landlord")
-      .select("id, name, receipt_name, upi_id, logo_document_id")
+      .select("id, name, receipt_name, upi_id, logo_document_id, signature_document_id")
       .eq("id", payment.landlord_id)
       .maybeSingle(),
   ]);
@@ -61,6 +62,11 @@ export async function receiptForPayment(db: SupabaseClient, paymentId: string): 
       upiId: landlord.data.upi_id,
       logoUrl: await logoUrl(db, landlord.data.id, landlord.data.logo_document_id),
     },
+    // D-56: landlord-printed receipts only. The tenant P-01 route reads D-30 columns, which have
+    // no signature, so the tenant's copy keeps the blank line.
+    signatureUrl: landlord.data.signature_document_id
+      ? await imageReadUrl(db, createSupabaseAdminClient(), landlord.data.id, "signature", landlord.data.signature_document_id)
+      : null,
   };
 }
 

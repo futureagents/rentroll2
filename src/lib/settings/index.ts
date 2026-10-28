@@ -4,8 +4,8 @@
 // needs a setting (S-01's ladder, S-02's UPI ID, P-01's receipt name and logo, L-12's escalation
 // default, L-14's accountant email) reads it from there rather than querying `landlord` itself.
 //
-// Columns (D-20): name, phone, email, upi_id, receipt_name, logo_document_id,
-// escalation_default_pct, ladder_days, accountant_email. There is no PAN column; PAN is not on
+// Columns (D-20, D-56): name, phone, email, upi_id, receipt_name, logo_document_id,
+// signature_document_id, escalation_default_pct, ladder_days, accountant_email. There is no PAN column; PAN is not on
 // L-15 until a schema ticket adds `landlord.pan`.
 import { TONES, parseLadderDays, type LadderDays, type Tone } from "@/components/composer/ladder";
 
@@ -26,6 +26,11 @@ export interface LandlordSettings {
   receiptName: string | null;
   /** L15-UPL-LOGO (D-15). */
   logoDocumentId: string | null;
+  /**
+   * L15-UPL-SIGNATURE † (D-56). Landlord-printed P-01 and P-02 only; never tenant-readable (D-30),
+   * so it never reaches anything a tenant link renders.
+   */
+  signatureDocumentId: string | null;
   /** L15-FLD-ESCDEFAULT. Null until set; L12-FLD-ESCALATION then shows 0 (D-20). */
   escalationDefaultPct: number | null;
   /** L15-TBL-LADDER: the first day each tone applies, counted from `due_on` (D-09, D-20, D-41). */
@@ -49,6 +54,7 @@ export const SETTINGS_DEFAULTS: LandlordSettings = {
   upiId: null,
   receiptName: null,
   logoDocumentId: null,
+  signatureDocumentId: null,
   escalationDefaultPct: null,
   ladderDays: DEFAULT_LADDER_DAYS,
   accountantEmail: null,
@@ -182,15 +188,20 @@ export type FieldErrors<K extends string> = Partial<Record<K, string>>;
 
 export type Parsed<T, K extends string> = { ok: true; value: T } | { ok: false; fieldErrors: FieldErrors<K> };
 
-/** What happens to the logo when Payment is saved. `documentId` is the S-04 upload ref. */
-export type LogoChange = { action: "keep" } | { action: "remove" } | { action: "replace"; documentId: string; fileName: string };
+/** The two images Payment holds (D-15, D-56), each a `document` row of that type with no unit. */
+export type ImageKind = "logo" | "signature";
+export const IMAGE_KINDS: readonly ImageKind[] = ["logo", "signature"];
+
+/** What happens to an image when Payment is saved. `documentId` is the S-04 upload ref. */
+export type ImageChange = { action: "keep" } | { action: "remove" } | { action: "replace"; documentId: string; fileName: string };
 
 export interface PaymentInput {
   upiId: string;
   receiptName: string;
-  logo: LogoChange;
+  logo: ImageChange;
+  signature: ImageChange;
 }
-export type PaymentField = "upiId" | "receiptName" | "logo";
+export type PaymentField = "upiId" | "receiptName" | ImageKind;
 
 export function parsePayment(input: PaymentInput): Parsed<{ upi_id: string | null; receipt_name: string | null }, PaymentField> {
   const fieldErrors: FieldErrors<PaymentField> = {};

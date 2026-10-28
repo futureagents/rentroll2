@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { requireLandlord } from "@/server/auth/session";
 import { tokenLinkBase } from "@/server/landlord/units/links";
 import { getLandlordSettings } from "@/server/settings";
-import { logoPreviewUrl } from "@/server/settings/logo";
+import { imageReadUrl } from "@/server/settings/images";
 import { createSupabaseAdminClient } from "@/server/supabase/admin";
 import { createSupabaseServerClient } from "@/server/supabase/server";
 
@@ -17,14 +17,24 @@ export default async function SettingsPage() {
   const landlord = await requireLandlord("/settings");
   const db = await createSupabaseServerClient();
   const settings = await getLandlordSettings(db);
-  const logoUrl = settings.logoDocumentId
-    ? await logoPreviewUrl(db, createSupabaseAdminClient(), landlord.landlordId, settings.logoDocumentId)
-    : null;
+  const admin = settings.logoDocumentId || settings.signatureDocumentId ? createSupabaseAdminClient() : null;
+  const [logoUrl, signatureUrl] = admin
+    ? await Promise.all([
+        imageReadUrl(db, admin, landlord.landlordId, "logo", settings.logoDocumentId),
+        imageReadUrl(db, admin, landlord.landlordId, "signature", settings.signatureDocumentId),
+      ])
+    : [null, null];
 
   // The address printed door QR codes and tenant links are built on (D-01, D-03). Configured by
   // whoever runs the app (APP_BASE_URL); shown here, never edited here.
   const configured = process.env.APP_BASE_URL?.trim().replace(/\/+$/, "") || null;
   const effective = await tokenLinkBase();
 
-  return <SettingsScreen settings={settings} logoUrl={logoUrl} baseUrl={{ configured, effective }} />;
+  return (
+    <SettingsScreen
+      settings={settings}
+      imageUrls={{ logo: logoUrl, signature: signatureUrl }}
+      baseUrl={{ configured, effective }}
+    />
+  );
 }
