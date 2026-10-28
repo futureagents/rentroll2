@@ -779,7 +779,7 @@ These do not affect schema, security, tenant/landlord behaviour, navigation, pay
 
 **Before any real tenant uses the app (not blocking the teaching build)**
 - `src/server/tenant/pages.ts` (T-03, T-04, T-05 reads, PR #35) needs unit tests: the D-30 column allow-list, the D-26 receipt-amount exception, and E1-10 for every failure. PR #35 was checked by hand against real response bodies, with no unit tests; it is a G-2 boundary, so tests come first.
-- L-15 logo replacement (PR #36) leaves the old logo file in the `documents` bucket. Needs a cleanup job that removes logo objects no `landlord` row points at. Parked.
+- L-15 logo replacement (PR #36) leaves the old logo file in the `documents` bucket. Needs a cleanup job that removes logo files (and their `document` rows) that no `landlord.logo_document_id` points at. Parked.
 
 **UI, wording and layout only**
 - index.md: cover counts; sidebar reachability; build-phase ordering (phases 3–5 interleave as the OPEN describes; the tracker's claim is simply wrong).
