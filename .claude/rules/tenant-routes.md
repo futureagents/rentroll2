@@ -80,6 +80,7 @@ No other tenant screen shows an amount. A new tenant surface with money needs it
 ## Code structure
 - Tenant files never import `src/server/landlord`, `src/app/(landlord)` or any landlord component.
   `scripts/check-boundaries.mjs` enforces this; never add an exception to it.
-- The service-role Supabase client is used only inside `src/server/tenant`, behind token resolution.
+- In tenant code, the service-role Supabase client is used only inside `src/server/tenant`, behind
+  token resolution. (Landlord server code also uses it, to sign storage URLs under D-15.)
 - Any change here must keep E4-1…E4-8 green and be reviewed with the `privacy-boundary` agent before
   the PR is opened.
