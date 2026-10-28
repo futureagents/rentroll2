@@ -3,7 +3,7 @@
 // The logo goes up through S-04 (one photo, D-15) as soon as it is picked; it is attached to the
 // landlord only when this section is saved, replacing the previous one. The receipt preview
 // follows what is typed and picked, so the landlord sees the printed result before saving.
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Button, TextField } from "@/components/ui";
 import { PhotoUploader, UPLOAD_MESSAGES, signedUrlTransport, useUploadQueue } from "@/components/upload";
@@ -43,6 +43,8 @@ export function PaymentSection({
     receiptName: settings.receiptName ?? "",
   }));
   const [values, setValues] = useState(baseline);
+  /** What the last save sent: edits typed while it was in flight stay unsaved. */
+  const submitted = useRef(baseline);
   const [removeLogo, setRemoveLogo] = useState(false);
   const [testing, setTesting] = useState(false);
   const transport = useMemo(() => signedUrlTransport(signLogoUploadAction), []);
@@ -73,10 +75,11 @@ export function PaymentSection({
       const input = { ...values, logo };
       const parsed = parsePayment(input);
       if (!parsed.ok) return { ok: false, error: CHECK_FIELDS, fieldErrors: parsed.fieldErrors };
+      submitted.current = values;
       return savePaymentAction(input);
     },
     onSaved: () => {
-      setBaseline(values);
+      setBaseline(submitted.current);
       setRemoveLogo(false);
       // The page has re-rendered with a signed URL for the saved logo (revalidatePath), so the
       // local copy can go and the uploader is free for the next replacement.

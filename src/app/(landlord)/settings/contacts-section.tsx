@@ -2,7 +2,7 @@
 // L15-SEC-CONTACTS †: L15-FLD-NAME †, L15-FLD-PHONE † (D-20) and L15-FLD-CAEMAIL. While the phone
 // is empty, tenant pages hide "Call the landlord" and P-03 drops its fallback line (D-20), so the
 // section says so in one line.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { PhoneField, TextField } from "@/components/ui";
 import { formatPhone } from "@/lib/format";
@@ -36,6 +36,8 @@ export function ContactsSection({
 }) {
   const [baseline, setBaseline] = useState(() => initialValues(settings));
   const [values, setValues] = useState(baseline);
+  /** What the last save sent: edits typed while it was in flight stay unsaved. */
+  const submitted = useRef(baseline);
   const dirty = !same(values, baseline);
   useEffect(() => onDirtyChange(dirty), [dirty, onDirtyChange]);
 
@@ -43,9 +45,10 @@ export function ContactsSection({
     save: async () => {
       const parsed = parseContacts(values);
       if (!parsed.ok) return { ok: false, error: CHECK_FIELDS, fieldErrors: parsed.fieldErrors };
+      submitted.current = values;
       return saveContactsAction(values);
     },
-    onSaved: () => setBaseline(values),
+    onSaved: () => setBaseline(submitted.current),
   });
 
   const set = (field: ContactsField) => (text: string) => {

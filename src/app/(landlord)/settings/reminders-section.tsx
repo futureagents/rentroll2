@@ -2,7 +2,7 @@
 // L15-SEC-REMINDERS †: L15-TBL-LADDER and L15-FLD-ESCDEFAULT. "Days are editable; the three
 // levels are fixed" — Gentle, Direct and Formal are labels here, not choices (D-38, D-41). The
 // saved days are what S-01 reads on its next open (src/server/settings getLadderDays, D-41).
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { TextField } from "@/components/ui";
 import {
@@ -29,9 +29,11 @@ function initialValues(settings: LandlordSettings): RemindersInput {
   };
 }
 
+/** "05" and "5" are the same day; an emptied field is a change. */
+const dayKey = (text: string) => text.trim().replace(/^0+(?=\d)/, "");
 const same = (a: RemindersInput, b: RemindersInput) =>
   a.escalationDefaultPct.trim() === b.escalationDefaultPct.trim() &&
-  a.ladderDays.every((d, i) => d.trim() === b.ladderDays[i].trim());
+  a.ladderDays.every((d, i) => dayKey(d) === dayKey(b.ladderDays[i]));
 
 export function RemindersSection({
   settings,
@@ -42,6 +44,8 @@ export function RemindersSection({
 }) {
   const [baseline, setBaseline] = useState(() => initialValues(settings));
   const [values, setValues] = useState(baseline);
+  /** What the last save sent: edits typed while it was in flight stay unsaved. */
+  const submitted = useRef(baseline);
   const dirty = !same(values, baseline);
   useEffect(() => onDirtyChange(dirty), [dirty, onDirtyChange]);
 
@@ -49,9 +53,10 @@ export function RemindersSection({
     save: async () => {
       const parsed = parseReminders(values);
       if (!parsed.ok) return { ok: false, error: CHECK_FIELDS, fieldErrors: parsed.fieldErrors };
+      submitted.current = values;
       return saveRemindersAction(values);
     },
-    onSaved: () => setBaseline(values),
+    onSaved: () => setBaseline(submitted.current),
   });
 
   const setDay = (index: 0 | 1 | 2, text: string) => {
